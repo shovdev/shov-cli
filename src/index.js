@@ -1,12 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const chalk = require('chalk')
-const {
-  uniqueNamesGenerator,
-  adjectives,
-  colors,
-  animals,
-} = require('unique-names-generator')
 const { ShovConfig } = require('./config')
 
 // Dynamic import for node-fetch
@@ -91,22 +85,17 @@ class ShovCLI {
 
   async createProject(projectName, options) {
     const { default: ora } = await import('ora')
-    let finalProjectName = projectName
     console.log('Creating your project...')
 
     if (!projectName) {
-      const { uniqueNamesGenerator, adjectives, colors } = await import(
-        'unique-names-generator'
-      )
-      const randomName = uniqueNamesGenerator({
-        dictionaries: [adjectives, colors],
-        separator: '-',
-      })
-      console.log(`No project name provided, using a random one: ${randomName}`)
-      finalProjectName = randomName
+      console.log('No project name provided, server will generate a random one...')
     }
 
-    const spinner = ora(`Creating project '${finalProjectName}' on Shov...`).start()
+    const spinner = ora(
+      projectName 
+        ? `Creating project '${projectName}' on Shov...`
+        : 'Creating project on Shov...'
+    ).start()
     const config = await this.config.getConfig()
 
     try {
@@ -117,7 +106,7 @@ class ShovCLI {
           Authorization: `Bearer ${config.token || ''}`,
         },
         body: JSON.stringify({
-          projectName: finalProjectName,
+          projectName: projectName || null,
           email: options.email,
         }),
       })

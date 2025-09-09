@@ -1,6 +1,6 @@
 {
   "name": "shov",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Shov CLI - Instant edge key/value store for developers",
   "main": "dist/index.js",
   "bin": {
@@ -39,8 +39,7 @@
     "fs-extra": "^11.2.0",
     "node-fetch": "^3.3.2",
     "ora": "^8.0.1",
-    "prompts": "^2.4.2",
-    "unique-names-generator": "^4.7.1"
+    "prompts": "^2.4.2"
   },
   "engines": {
     "node": ">=16.0.0"
