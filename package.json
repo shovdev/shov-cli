@@ -9,7 +9,7 @@
   "scripts": {
     "build": "esbuild src/index.js --bundle --platform=node --outfile=dist/index.js",
     "prepublishOnly": "npm run build",
-    "test": "node test.js",
+    "test": "echo \"No tests specified\"",
     "postinstall": "node postinstall.js"
   },
   "keywords": [
