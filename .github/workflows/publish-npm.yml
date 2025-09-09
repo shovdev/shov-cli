@@ -24,7 +24,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Build package
         run: npm run build
@@ -60,10 +65,33 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.version-check.outputs.current_version }}
-          release_name: Release v${{ steps.version-check.outputs.current_version }}
+          release_name: Shov CLI v${{ steps.version-check.outputs.current_version }}
           body: |
-            Automated release for version ${{ steps.version-check.outputs.current_version }}
+            ## Shov CLI v${{ steps.version-check.outputs.current_version }}
             
-            Changes synced from private monorepo.
+            ### 📦 Installation
+            ```bash
+            npm install -g shov
+            ```
+            
+            ### 🚀 Quick Start
+            ```bash
+            shov new          # Create a new project
+            shov set key val  # Store data
+            shov get key      # Retrieve data
+            ```
+            
+            ### 📋 What's New
+            - Synced from private monorepo
+            - Latest features and bug fixes
+            - Enhanced performance and stability
+            
+            ### 📚 Documentation
+            - [Getting Started](https://shov.com/docs)
+            - [API Reference](https://shov.com/docs/api)
+            - [Examples](https://shov.com/examples)
+            
+            ---
+            **Full Changelog**: https://github.com/shovdev/shov-cli/commits/v${{ steps.version-check.outputs.current_version }}
           draft: false
           prerelease: false
