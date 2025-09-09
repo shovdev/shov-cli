@@ -12,6 +12,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     if: github.repository == 'shovdev/shov-cli'
+    permissions:
+      contents: write
+      packages: write
     
     steps:
       - name: Checkout code
@@ -60,12 +63,12 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.version-check.outputs.version_exists == 'false' && github.event_name == 'push'
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.version-check.outputs.current_version }}
-          release_name: Shov CLI v${{ steps.version-check.outputs.current_version }}
+          name: Shov CLI v${{ steps.version-check.outputs.current_version }}
           body: |
             ## Shov CLI v${{ steps.version-check.outputs.current_version }}
             
@@ -87,11 +90,12 @@ jobs:
             - Enhanced performance and stability
             
             ### 📚 Documentation
-            - [Getting Started](https://shov.com/docs)
-            - [API Reference](https://shov.com/docs/api)
-            - [Examples](https://shov.com/examples)
+            - [Getting Started](https://shov.com/)
+            - [API Reference](https://shov.com/)
+            - [Examples](https://shov.com/)
             
             ---
             **Full Changelog**: https://github.com/shovdev/shov-cli/commits/v${{ steps.version-check.outputs.current_version }}
           draft: false
           prerelease: false
+          generate_release_notes: true

@@ -14,7 +14,7 @@ if (isGlobalInstall) {
   console.log(`  ${chalk.cyan('shov set hello world')} Store some data`)
   console.log(`  ${chalk.cyan('shov get hello')}     Retrieve data`)
   console.log('')
-  console.log(chalk.gray('Documentation: https://shov.com/docs'))
+  console.log(chalk.gray('Documentation: https://shov.com/'))
   console.log('')
 } else {
   // Local install - show npx instructions

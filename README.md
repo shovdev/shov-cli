@@ -193,7 +193,7 @@ export default async function handler(req, res) {
 
 ## Support
 
-- Documentation: https://shov.com/docs
+- Documentation: https://shov.com
 - GitHub: https://github.com/shovdev/shov-cli
 - Issues: https://github.com/shovdev/shov-cli/issues
 
