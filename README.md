@@ -260,11 +260,14 @@ export default async function handler(req, res) {
 }
 ```
 
-## Support
+## Community & Support
 
-- Documentation: https://shov.com
-- GitHub: https://github.com/shovdev/shov-cli
-- Issues: https://github.com/shovdev/shov-cli/issues
+- **Documentation**: [shov.com](https://shov.com)
+- **GitHub**: [github.com/shovdev](https://github.com/shovdev)
+- **X/Twitter**: [@shovdev](https://x.com/shovdev)
+- **Reddit**: [r/shov](https://www.reddit.com/r/shov/)
+- **Discord**: [Join our community](https://discord.gg/GB3rDcFrGz)
+- **Issues**: [GitHub Issues](https://github.com/shovdev/shov-cli/issues)
 
 ## License
 

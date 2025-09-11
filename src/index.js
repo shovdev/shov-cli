@@ -249,7 +249,8 @@ class ShovCLI {
     
     await delay(800)
     console.log(chalk.gray('\n   📚 Full documentation: ') + chalk.cyan('https://shov.com'))
-    console.log(chalk.gray('   💬 Get in touch: ') + chalk.cyan('x.com/shovdev'))
+    console.log(chalk.gray('   💬 Join our community: ') + chalk.cyan('discord.gg/GB3rDcFrGz') + chalk.gray(' • ') + chalk.cyan('reddit.com/r/shov'))
+    console.log(chalk.gray('   🐦 Follow us: ') + chalk.cyan('x.com/shovdev'))
   }
 
   async createProject(projectName, options) {
