@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+# Note: package-lock.json is excluded from public repo to avoid conflicts
 
 # Build output
 dist/
@@ -25,3 +26,10 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Development files
+build.js
+DEPLOYMENT.md
+src/index-dev.js
+bin/shov-dev.js
+
