@@ -191,6 +191,8 @@ program
     .option('--project-wide', 'Search across all collections in the project (default)')
     .option('--org-wide', 'Search across all projects in the organization')
     .option('--min-score <score>', 'The minimum similarity score for results (0.0 to 1.0)')
+    .option('--top-k <number>', 'Maximum number of results to return (default: 10)')
+    .option('--filters <json>', 'JSON object to filter results by specific fields (e.g. \'{"user_id": "123"}\')')
     .action(async (query, options) => {
         try {
             const cli = new ShovCLI(options);
