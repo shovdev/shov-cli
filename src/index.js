@@ -1320,7 +1320,17 @@ class ShovCLI {
         collection: options.collection || null,
         orgWide: options.orgWide || false,
         minScore: minScore,
+        topK: options.topK ? parseInt(options.topK, 10) : undefined,
       };
+
+      // Add filters if provided
+      if (options.filters) {
+        try {
+          payload.filters = JSON.parse(options.filters);
+        } catch (error) {
+          throw new Error('Filters must be valid JSON');
+        }
+      }
 
       const response = await fetch(`${this.apiUrl}/api/search/${projectName}`, {
         method: 'POST',
