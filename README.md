@@ -2,6 +2,14 @@
 
 Instant edge key/value store for developers. Create projects, store data, and build apps with zero setup.
 
+<p align="center">
+  <a href="https://shov.com"><strong>Website / Docs</strong></a> •
+  <a href="https://github.com/shovdev"><img src="https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white" alt="GitHub"></a> •
+  <a href="https://x.com/shovdev"><img src="https://img.shields.io/badge/X-000000?style=flat&logo=x&logoColor=white" alt="X"></a> •
+  <a href="https://www.reddit.com/r/shov/"><img src="https://img.shields.io/badge/Reddit-FF4500?style=flat&logo=reddit&logoColor=white" alt="Reddit"></a> •
+  <a href="https://discord.gg/GB3rDcFrGz"><img src="https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord"></a>
+</p>
+
 ## Installation
 
 ```bash
@@ -260,13 +268,8 @@ export default async function handler(req, res) {
 }
 ```
 
-## Community & Support
+## Support
 
-- **Documentation**: [shov.com](https://shov.com)
-- **GitHub**: [github.com/shovdev](https://github.com/shovdev)
-- **X/Twitter**: [@shovdev](https://x.com/shovdev)
-- **Reddit**: [r/shov](https://www.reddit.com/r/shov/)
-- **Discord**: [Join our community](https://discord.gg/GB3rDcFrGz)
 - **Issues**: [GitHub Issues](https://github.com/shovdev/shov-cli/issues)
 
 ## License
