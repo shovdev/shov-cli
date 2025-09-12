@@ -1,6 +1,6 @@
 {
   "name": "shov",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Shov CLI - Instant edge key/value store for developers",
   "main": "dist/index.js",
   "bin": {

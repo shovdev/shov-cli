@@ -92,8 +92,18 @@ shov where users
 All data commands support these options:
 - `-p, --project <name>` - Specify project name
 - `-k, --key <apikey>` - Specify API key
+- `--json` - Output structured JSON for scripting (available on get, search, where commands)
 
-If not provided, values are read from `.shov` configuration file.
+Search-specific options:
+- `--top-k <number>` - Maximum number of results (default: 10)
+- `--topK <number>` - Alias for --top-k (backward compatibility)
+- `--min-score <number>` - Minimum similarity score (0.0-1.0, default: 0.5)
+- `--minScore <number>` - Alias for --min-score (backward compatibility)
+- `--filters <json>` - JSON object to filter results by specific fields
+- `--limit <number>` - Alias for --top-k (pagination)
+- `--offset <number>` - Skip results for pagination
+
+If project/key not provided, values are read from `.shov` configuration file.
 
 ## Configuration
 
@@ -178,9 +188,17 @@ shov add-many products '[
 # Search with natural language
 shov search "stringed instrument" -c products
 
+# Search with filters and options
+shov search "musical equipment" --top-k 5 --min-score 0.7 --filters '{"type":"Electric Guitar"}'
+
 # Search across all collections in project
 shov search "musical equipment"
+
+# Get structured JSON output for scripting
+shov search "stringed instrument" -c products --json
 ```
+
+**⚠️ Important Note**: Vector search has eventual consistency. There is a small delay between adding data and it becoming searchable. Newly added items may not appear in search results immediately.
 
 ### Authentication
 
@@ -190,6 +208,29 @@ shov send-otp user@example.com
 
 # Verify the code
 shov verify-otp user@example.com 123456
+```
+
+### JSON Output & Scripting
+
+Use `--json` flag for structured output suitable for automation:
+
+```bash
+# Get structured JSON output
+shov get config --json
+# Output: {"success": true, "key": "config", "value": {...}, "project": "my-project"}
+
+# Search with JSON output for parsing
+shov search "electronics" --json | jq '.items[].value.name'
+
+# Pipe results to other tools
+shov where users --json | jq '.items | length'  # Count users
+
+# Use in shell scripts
+RESULT=$(shov get user_count --json)
+if echo "$RESULT" | jq -e '.success' > /dev/null; then
+  COUNT=$(echo "$RESULT" | jq -r '.value')
+  echo "Current user count: $COUNT"
+fi
 ```
 
 ### Integration with Existing Projects

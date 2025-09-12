@@ -771,14 +771,37 @@ class ShovCLI {
       const data = await this.apiCall(`/get/${projectName}`, body, apiKey, options);
 
       if (data.success) {
-        console.log(`Value for "${key}": ${JSON.stringify(data.value, null, 2)}`)
+        if (options.json) {
+          console.log(JSON.stringify({
+            success: true,
+            key: key,
+            value: data.value,
+            project: projectName
+          }, null, 2));
+        } else {
+          console.log(`Value for "${key}": ${JSON.stringify(data.value, null, 2)}`)
+        }
       } else {
-        console.error(`Error: Failed to get value: ${data.error || 'Unknown error'}`)
+        if (options.json) {
+          console.log(JSON.stringify({
+            success: false,
+            error: data.error || 'Unknown error'
+          }, null, 2));
+        } else {
+          console.error(`Error: Failed to get value: ${data.error || 'Unknown error'}`)
+        }
       }
     } catch (error) {
-      console.error(`Error: Failed to get value: ${error.message}`);
-      if (error.response && error.response.payload) {
-        console.error(chalk.gray(`Request Payload: ${JSON.stringify(error.response.payload, null, 2)}`));
+      if (options.json) {
+        console.log(JSON.stringify({
+          success: false,
+          error: error.message
+        }, null, 2));
+      } else {
+        console.error(`Error: Failed to get value: ${error.message}`);
+        if (error.response && error.response.payload) {
+          console.error(chalk.gray(`Request Payload: ${JSON.stringify(error.response.payload, null, 2)}`));
+        }
       }
     }
   }
@@ -1291,26 +1314,36 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options);
 
     try {
-      let searchDescription = 'Searching';
-      if (options.collection) {
-        searchDescription += ` in collection "${options.collection}"`;
-      } else if (options.orgWide) {
-        searchDescription += ` in the organization`;
-      } else {
-        searchDescription += ` in project "${projectName}"`;
+      // Handle flag aliases for backward compatibility  
+      // Commander.js converts --min-score and --minScore both to minScore
+      // Commander.js converts --top-k and --topK both to topK
+      const minScore = options.minScore;
+      const topK = options.topK || options.limit;
+      
+      if (!options.json) {
+        let searchDescription = 'Searching';
+        if (options.collection) {
+          searchDescription += ` in collection "${options.collection}"`;
+        } else if (options.orgWide) {
+          searchDescription += ` in the organization`;
+        } else {
+          searchDescription += ` in project "${projectName}"`;
+        }
+        searchDescription += ` for: "${query}"...`;
+        console.log(chalk.blue(searchDescription));
       }
-      searchDescription += ` for: "${query}"...`;
-      console.log(chalk.blue(searchDescription));
 
-      let minScore;
-      if (options.minScore) {
-        const score = parseFloat(options.minScore);
+      let effectiveMinScore;
+      if (minScore) {
+        const score = parseFloat(minScore);
         if (!isNaN(score)) {
           if (score > 1 && score <= 100) {
-            minScore = score / 100;
-            console.log(chalk.gray(`(Note: --min-score ${score} was auto-corrected to ${minScore})`));
+            effectiveMinScore = score / 100;
+            if (!options.json) {
+              console.log(chalk.gray(`(Note: --min-score ${score} was auto-corrected to ${effectiveMinScore})`));
+            }
           } else {
-            minScore = score;
+            effectiveMinScore = score;
           }
         }
       }
@@ -1319,8 +1352,8 @@ class ShovCLI {
         query,
         collection: options.collection || null,
         orgWide: options.orgWide || false,
-        minScore: minScore,
-        topK: options.topK ? parseInt(options.topK, 10) : undefined,
+        minScore: effectiveMinScore,
+        topK: topK ? parseInt(topK, 10) : undefined,
       };
 
       // Add filters if provided
@@ -1344,33 +1377,57 @@ class ShovCLI {
       const data = await response.json();
 
       if (!response.ok) {
+        if (options.json) {
+          console.log(JSON.stringify({
+            success: false,
+            error: data.error || 'Search failed'
+          }, null, 2));
+          return;
+        }
         throw new Error(data.error || 'Search failed');
       }
 
-      console.log(chalk.green(`✅ Found ${data.items.length} results:`));
-      
-      if (data.items.length === 0) {
-        return;
+      if (options.json) {
+        console.log(JSON.stringify({
+          success: true,
+          query: query,
+          project: projectName,
+          collection: options.collection || null,
+          total: data.items.length,
+          items: data.items
+        }, null, 2));
+      } else {
+        console.log(chalk.green(`✅ Found ${data.items.length} results:`));
+        
+        if (data.items.length === 0) {
+          return;
+        }
+
+        data.items.forEach((item, index) => {
+          console.log(`  ${index + 1}. ${item.id} (Score: ${item._score.toFixed(4)})`);
+          if (item.type === 'key') {
+            // For key/value pairs, show the key.
+            console.log(`     ${chalk.green(item.name)}: ${JSON.stringify(item.value)}`);
+          } else if (item.type === 'collection_item') {
+            // For collection items, show the collection name.
+            console.log(`     ${chalk.blue(item.name)}: ${JSON.stringify(item.value)}`);
+          } else {
+            // Fallback for any other type
+            console.log(`     ${JSON.stringify(item.value)}`);
+          }
+          console.log(`     ${chalk.dim(new Date(item.createdAt).toLocaleString())}`);
+        });
       }
 
-      data.items.forEach((item, index) => {
-        console.log(`  ${index + 1}. ${item.id} (Score: ${item._score.toFixed(4)})`);
-        if (item.type === 'key') {
-          // For key/value pairs, show the key.
-          console.log(`     ${chalk.green(item.name)}: ${JSON.stringify(item.value)}`);
-        } else if (item.type === 'collection_item') {
-          // For collection items, show the collection name.
-          console.log(`     ${chalk.blue(item.name)}: ${JSON.stringify(item.value)}`);
-        } else {
-          // Fallback for any other type
-          console.log(`     ${JSON.stringify(item.value)}`);
-        }
-        console.log(`     ${chalk.dim(new Date(item.createdAt).toLocaleString())}`);
-      });
-
-    } catch (error)
-      {
-      throw new Error(`Search failed: ${error.message}`);
+    } catch (error) {
+      if (options.json) {
+        console.log(JSON.stringify({
+          success: false,
+          error: error.message
+        }, null, 2));
+      } else {
+        throw new Error(`Search failed: ${error.message}`);
+      }
     }
   }
 

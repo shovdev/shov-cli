@@ -41,6 +41,7 @@ program
   .description('Get a value from your Shov project')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--json', 'Output JSON for scripting')
   .action(async (key, options) => {
     try {
       const cli = new ShovCLI(options);
@@ -57,6 +58,8 @@ program
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--no-vector', 'Exclude from vector search/embedding processing')
+  .option('--ttl <seconds>', 'Time to live in seconds (for expiration)')
+  .option('--json', 'Output JSON for scripting')
   .action(async (key, value, options) => {
     try {
       const cli = new ShovCLI(options);
@@ -73,6 +76,7 @@ program
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--no-vector', 'Exclude from vector search/embedding processing')
+  .option('--ttl <seconds>', 'Time to live in seconds (for expiration)')
   .option('--json', 'Output JSON for scripting')
   .action(async (collection, value, options) => {
     try {
@@ -106,8 +110,10 @@ program
   .description('Find items in a collection based on a filter.')
   .option('-f, --filter <json>', 'JSON string to filter by', '{}')
   .option('-l, --limit <number>', 'Limit the number of results', '50')
+  .option('--offset <number>', 'Skip this many results (for pagination)')
   .option('-p, --project <name>', 'Specify the project name')
   .option('-k, --key <key>', 'Specify the API key')
+  .option('--json', 'Output JSON for scripting')
   .action(async (collection, options) => {
     try {
       await new ShovCLI(options).whereInCollection(collection, options);
@@ -191,8 +197,13 @@ program
     .option('--project-wide', 'Search across all collections in the project (default)')
     .option('--org-wide', 'Search across all projects in the organization')
     .option('--min-score <score>', 'The minimum similarity score for results (0.0 to 1.0)')
+    .option('--minScore <score>', 'Alias for --min-score (backward compatibility)')
     .option('--top-k <number>', 'Maximum number of results to return (default: 10)')
+    .option('--topK <number>', 'Alias for --top-k (backward compatibility)')
     .option('--filters <json>', 'JSON object to filter results by specific fields (e.g. \'{"user_id": "123"}\')')
+    .option('--limit <number>', 'Alias for --top-k (pagination)')
+    .option('--offset <number>', 'Skip this many results (for pagination)')
+    .option('--json', 'Output JSON for scripting')
     .action(async (query, options) => {
         try {
             const cli = new ShovCLI(options);
