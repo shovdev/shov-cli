@@ -14,6 +14,40 @@ class ShovCLI {
     this.config = new ShovConfig()
   }
 
+  // Helper method to handle API errors with better messaging
+  handleApiError(response, data, spinner, operation = 'Operation') {
+    if (response.status === 429) {
+      // Rate limiting
+      const retryAfter = response.headers.get('Retry-After') || data.retryAfter
+      const waitTime = retryAfter ? Math.ceil(retryAfter / 60) : 60 // Convert to minutes
+      
+      spinner.fail(`Rate limit exceeded: ${data.error || 'Too many requests'}`)
+      console.log(chalk.yellow(`⏱️  Please wait ${waitTime} minute${waitTime > 1 ? 's' : ''} before trying again.`))
+      
+      if (data.error && data.error.includes('email')) {
+        console.log(chalk.blue('💡 Tip: You can try using a different email address or wait for the limit to reset.'))
+      }
+      return
+    }
+    
+    if (response.status === 400 && data.error) {
+      // Validation errors (like email format, aliases, etc.)
+      spinner.fail(`${operation} failed: ${data.error}`)
+      
+      if (data.error.includes('alias') || data.error.includes('+')) {
+        console.log(chalk.blue('💡 Tip: Use your main email address without any aliases (no + symbols).'))
+      } else if (data.error.includes('disposable')) {
+        console.log(chalk.blue('💡 Tip: Please use a permanent email address instead of a temporary one.'))
+      } else if (data.error.includes('Invalid email format')) {
+        console.log(chalk.blue('💡 Tip: Please enter a valid email address (e.g., user@example.com).'))
+      }
+      return
+    }
+    
+    // Generic error handling
+    spinner.fail(`${operation} failed: ${data.error || response.statusText}`)
+  }
+
   async apiCall(path, body, apiKey, options = {}, method = 'POST') {
     const { verbose } = options;
     const url = `${this.apiUrl}/api${path}`;
@@ -367,9 +401,7 @@ class ShovCLI {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        spinner.fail(
-          `Project creation failed: ${data.error || response.statusText}`
-        )
+        this.handleApiError(response, data, spinner, 'Project creation')
         return
       }
 
@@ -408,7 +440,7 @@ class ShovCLI {
 
         if (!verifyResponse.ok) {
           const verifyData = await verifyResponse.json().catch(() => ({}))
-          spinner.fail(`Verification failed: ${verifyData.error || verifyResponse.statusText}`)
+          this.handleApiError(verifyResponse, verifyData, spinner, 'Verification')
           return
         }
 
@@ -557,7 +589,7 @@ class ShovCLI {
       const initiateData = await initiateResponse.json();
 
       if (!initiateResponse.ok || !initiateData.success) {
-        spinner.fail(`Failed to initiate claim: ${initiateData.error || 'Unknown error'}`);
+        this.handleApiError(initiateResponse, initiateData, spinner, 'Claim initiation');
         return;
       }
       
@@ -586,7 +618,7 @@ class ShovCLI {
       const verifyData = await verifyResponse.json();
 
       if (!verifyResponse.ok || !verifyData.success) {
-        spinner.fail(`Claim failed: ${verifyData.error || 'Unknown error'}`);
+        this.handleApiError(verifyResponse, verifyData, spinner, 'Claim verification');
         return;
       }
 
@@ -1064,7 +1096,7 @@ class ShovCLI {
       if (response.ok) {
         spinner.succeed(data.message);
       } else {
-        spinner.fail(`Failed to send OTP: ${data.error || 'Unknown error'}`);
+        this.handleApiError(response, data, spinner, 'OTP sending');
       }
     } catch (error) {
       spinner.fail(`Failed to send OTP: ${error.message}`);
