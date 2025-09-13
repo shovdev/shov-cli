@@ -21,14 +21,22 @@ npm install -g shov
 ### 1. Create a new project
 
 ```bash
+# Create an anonymous project
 shov new
+
+# Create a named project
+shov new my-project
+
+# Create a project with email verification (for account management)
+shov new my-project --email user@example.com
 ```
 
 This will:
-- Prompt for your email and project name
-- Create a new Shov project
+- Create a new Shov project (anonymous by default)
 - Generate an API key
-- Save configuration locally
+- Save configuration locally to `.shov` file
+- Add environment variables to your `.env` file
+- If email is provided, send a verification code for account linking
 
 ### 2. Store and retrieve data
 
@@ -61,7 +69,8 @@ shov where users
 
 ### Project Management
 
-- `shov new` - Create a new Shov project and API key
+- `shov new [projectName]` - Create a new Shov project and API key
+  - `--email <email>` - Link project to your email (requires verification)
 - `shov config` - Show current project configuration
 
 ### Data Operations
