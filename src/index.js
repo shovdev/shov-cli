@@ -1337,6 +1337,79 @@ class ShovCLI {
   }
 
   // Search a collection
+  async token(typeOrSubscriptions, subscriptionsOrOptions = {}, options = {}) {
+    // Handle both old and new calling patterns for backward compatibility
+    let type, subscriptions, finalOptions;
+    
+    if (typeof typeOrSubscriptions === 'string') {
+      // New pattern: token('streaming', [...], options)
+      type = typeOrSubscriptions;
+      subscriptions = subscriptionsOrOptions;
+      finalOptions = options;
+    } else {
+      // Legacy pattern: streamToken([...], options) - assume streaming type
+      type = 'streaming';
+      subscriptions = typeOrSubscriptions;
+      finalOptions = subscriptionsOrOptions;
+    }
+    
+    const { projectName, apiKey } = await this.getProjectConfig(finalOptions);
+
+    try {
+      // Parse subscriptions JSON if it's a string
+      let parsedSubscriptions;
+      if (typeof subscriptions === 'string') {
+        try {
+          parsedSubscriptions = JSON.parse(subscriptions);
+        } catch (error) {
+          console.error(chalk.red('Error: Invalid JSON format for subscriptions'));
+          console.log(chalk.yellow('Example: \'[{"collection": "users", "filters": {"status": "active"}}, {"channel": "chat-room-1"}]\''));
+          return;
+        }
+      } else {
+        parsedSubscriptions = subscriptions;
+      }
+
+      if (!Array.isArray(parsedSubscriptions)) {
+        console.error(chalk.red('Error: Subscriptions must be an array'));
+        return;
+      }
+
+      if (!finalOptions.json) {
+        console.log(chalk.blue(`Creating ${type} token for ${parsedSubscriptions.length} subscription${parsedSubscriptions.length === 1 ? '' : 's'}...`));
+      }
+
+      const payload = {
+        type,
+        subscriptions: parsedSubscriptions,
+        expires_in: finalOptions.expires ? parseInt(finalOptions.expires, 10) : 3600
+      };
+
+      const response = await this.apiCall(`/api/token/${projectName}`, payload, apiKey);
+      const data = await response.json();
+
+      if (!response.ok) {
+        this.handleApiError(response, data, { fail: (msg) => console.error(chalk.red(msg)) }, 'Token creation');
+        return;
+      }
+
+      if (finalOptions.json) {
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        console.log(chalk.green(`✅ ${type.charAt(0).toUpperCase() + type.slice(1)} token created successfully!`));
+        console.log('');
+        console.log(`  Token: ${chalk.yellow(data.token)}`);
+        console.log(`  Expires: ${chalk.gray(data.expires_at)} (${data.expires_in}s)`);
+        console.log(`  Subscriptions: ${chalk.cyan(data.subscriptions)}`);
+        console.log('');
+        console.log(chalk.blue('💡 Use this token with the subscribe endpoint to receive real-time updates.'));
+        console.log(chalk.gray('   Keep this token secure and use HTTPS for all streaming connections.'));
+      }
+    } catch (error) {
+      console.error(chalk.red('Error creating stream token:'), error.message);
+    }
+  }
+
   async search(query, options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options);
 

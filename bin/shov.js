@@ -293,6 +293,23 @@ files
     });
 
 program
+    .command('token <type> <data>')
+    .description('Create a temporary token for various client-side operations')
+    .option('-p, --project <project>', 'Project name (or use .shov config)')
+    .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+    .option('--expires <seconds>', 'Token expiration time in seconds (default: 3600)')
+    .option('--json', 'Output JSON for scripting')
+    .action(async (type, data, options) => {
+        try {
+            const cli = new ShovCLI(options);
+            await cli.token(type, data, options);
+        } catch (error) {
+            console.error(chalk.red('Error:'), error.message);
+            process.exit(1);
+        }
+    });
+
+program
     .command('send-otp <identifier>')
     .description('Send a one-time password (OTP) to an email address.')
     .option('-p, --project <name>', 'Specify the project name')
