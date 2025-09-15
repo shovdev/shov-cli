@@ -1382,10 +1382,17 @@ class ShovCLI {
       const payload = {
         type,
         subscriptions: parsedSubscriptions,
-        expires_in: finalOptions.expires ? parseInt(finalOptions.expires, 10) : 3600
+        expires_in: finalOptions.expires ? parseInt(finalOptions.expires, 10) : 3600,
+        api_key: apiKey
       };
 
-      const response = await this.apiCall(`/api/token/${projectName}`, payload, apiKey);
+      const response = await fetch(`${this.apiUrl}/api/token/${projectName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
       const data = await response.json();
 
       if (!response.ok) {
