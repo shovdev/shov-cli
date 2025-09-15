@@ -7,7 +7,7 @@ const { ShovCLI } = require('../dist/index.js')
 program
   .name('shov')
   .description('Shov CLI - Instant edge key/value store')
-  .version('2.4.0')
+  .version('2.4.4')
 
 program
   .command('new [projectName]')

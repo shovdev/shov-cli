@@ -1537,7 +1537,7 @@ class ShovCLI {
       console.log('');
 
       // Connect to SSE stream
-      const { default: EventSource } = await import('eventsource');
+      const { EventSource } = await import('eventsource');
       const subscriptionsParam = encodeURIComponent(JSON.stringify(parsedSubscriptions));
       const eventSource = new EventSource(`${this.apiUrl}/api/subscribe/${projectName}?token=${tokenData.token}&subscriptions=${subscriptionsParam}`);
 
