@@ -1,7 +1,7 @@
 {
   "name": "shov",
-  "version": "2.3.3",
-  "description": "Shov CLI - Instant edge key/value store for developers",
+  "version": "2.4.0",
+  "description": "Shov CLI - AI-native database with vector search and real-time streaming",
   "main": "dist/index.js",
   "bin": {
     "shov": "./bin/shov.js"

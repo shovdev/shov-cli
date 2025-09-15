@@ -1,6 +1,6 @@
 # Shov CLI
 
-Instant edge key/value store for developers. Create projects, store data, and build apps with zero setup.
+AI-native database with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
 
 <p align="center">
   <a href="https://shov.com" target="_blank"><strong>Website / Docs</strong></a> •
@@ -95,6 +95,11 @@ shov where users
 ### Authentication
 - `shov send-otp <email>` - Send a verification code to an email
 - `shov verify-otp <email> <code>` - Verify an email with a code
+
+### Real-time Streaming
+- `shov token streaming <subscriptions>` - Create a streaming token for browser-side connections
+- `shov subscribe <subscriptions>` - Subscribe to real-time updates via Server-Sent Events
+- `shov broadcast <subscription> <message>` - Broadcast a message to active subscribers
 
 ### Options
 
@@ -219,6 +224,41 @@ shov send-otp user@example.com
 shov verify-otp user@example.com 123456
 ```
 
+### Real-time Streaming
+
+```bash
+# Create a streaming token for browser-side connections
+shov token streaming '[
+  {"collection": "users", "filters": {"status": "active"}},
+  {"key": "config"},
+  {"channel": "notifications"}
+]' --expires 3600
+
+# Subscribe to real-time updates (keeps connection open)
+shov subscribe '[
+  {"collection": "users"},
+  {"key": "config"},
+  {"channel": "chat"}
+]'
+# This will show live updates as they happen. Press Ctrl+C to stop.
+
+# In another terminal, broadcast messages to subscribers
+shov broadcast '{"channel": "chat"}' '{"user": "Alice", "message": "Hello everyone!"}'
+
+# Broadcast to collection subscribers
+shov broadcast '{"collection": "users", "filters": {"role": "admin"}}' '{"type": "alert", "text": "System maintenance"}'
+
+# Broadcast to key subscribers
+shov broadcast '{"key": "config"}' '{"theme": "dark", "updated_at": "2024-01-15T10:30:00Z"}'
+```
+
+**Real-time Features:**
+- **Collection Subscriptions**: Get notified when items are added, updated, or removed
+- **Key Subscriptions**: Real-time updates when specific keys change
+- **Custom Channels**: Send and receive custom messages for chat, notifications, etc.
+- **Filtered Subscriptions**: Only receive updates matching your criteria
+- **Auto-broadcasts**: All data writes (set, add, update, remove) automatically notify subscribers
+
 ### JSON Output & Scripting
 
 Use `--json` flag for structured output suitable for automation:
@@ -279,6 +319,27 @@ await shov.forget('hello')
 // Collections
 await shov.add('users', { name: 'Alice', age: 25 })
 const users = await shov.where('users', { filter: { age: 25 } })
+
+// Vector search
+const results = await shov.search('find Alice', { collection: 'users' })
+
+// Real-time streaming
+const { eventSource, close } = await shov.subscribe([
+  { collection: 'users' },
+  { channel: 'notifications' }
+], {
+  onMessage: (data) => console.log('Update:', data),
+  onError: (error) => console.error('Stream error:', error)
+})
+
+// Broadcast messages
+await shov.broadcast(
+  { channel: 'notifications' },
+  { text: 'Hello from the app!' }
+)
+
+// Close stream when done
+// close()
 ```
 
 ## Next.js Integration

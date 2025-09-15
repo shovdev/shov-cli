@@ -310,6 +310,39 @@ program
     });
 
 program
+    .command('broadcast <subscription> <message>')
+    .description('Broadcast a message to subscribers of a specific subscription')
+    .option('-p, --project <project>', 'Project name (or use .shov config)')
+    .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+    .option('--json', 'Output JSON for scripting')
+    .action(async (subscription, message, options) => {
+        try {
+            const cli = new ShovCLI(options);
+            await cli.broadcast(subscription, message, options);
+        } catch (error) {
+            console.error(chalk.red('Error:'), error.message);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('subscribe <subscriptions>')
+    .description('Subscribe to real-time updates from collections, keys, or channels')
+    .option('-p, --project <project>', 'Project name (or use .shov config)')
+    .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+    .option('--expires <seconds>', 'Token expiration time in seconds (default: 3600)')
+    .option('--verbose', 'Show heartbeat messages')
+    .action(async (subscriptions, options) => {
+        try {
+            const cli = new ShovCLI(options);
+            await cli.subscribe(subscriptions, options);
+        } catch (error) {
+            console.error(chalk.red('Error:'), error.message);
+            process.exit(1);
+        }
+    });
+
+program
     .command('send-otp <identifier>')
     .description('Send a one-time password (OTP) to an email address.')
     .option('-p, --project <name>', 'Specify the project name')

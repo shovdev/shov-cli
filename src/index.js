@@ -1410,6 +1410,174 @@ class ShovCLI {
     }
   }
 
+  async broadcast(subscription, message, options = {}) {
+    const { default: ora } = await import('ora');
+    const spinner = ora('Broadcasting message...').start();
+    
+    try {
+      const { projectName, apiKey } = await this.getProjectConfig(options);
+      
+      // Parse subscription JSON if it's a string
+      let parsedSubscription;
+      if (typeof subscription === 'string') {
+        try {
+          parsedSubscription = JSON.parse(subscription);
+        } catch (error) {
+          spinner.fail('Invalid JSON format for subscription');
+          console.log(chalk.yellow('Example: \'{"collection": "users", "filters": {"status": "active"}}\''));
+          return;
+        }
+      } else {
+        parsedSubscription = subscription;
+      }
+      
+      // Parse message JSON if it's a string
+      let parsedMessage;
+      if (typeof message === 'string') {
+        try {
+          parsedMessage = JSON.parse(message);
+        } catch (error) {
+          // If not valid JSON, treat as string
+          parsedMessage = message;
+        }
+      } else {
+        parsedMessage = message;
+      }
+
+      const response = await fetch(`${this.apiUrl}/api/broadcast/${projectName}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription: parsedSubscription,
+          message: parsedMessage
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        spinner.fail(`Broadcast failed: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      if (options.json) {
+        spinner.stop();
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        spinner.succeed('Message broadcast successfully!');
+        console.log(`  Message ID: ${chalk.yellow(data.messageId)}`);
+        console.log(`  Delivered to: ${chalk.cyan(data.delivered)} connection${data.delivered === 1 ? '' : 's'}`);
+      }
+    } catch (error) {
+      spinner.fail(`Broadcast failed: ${error.message}`);
+    }
+  }
+
+  async subscribe(subscriptions, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options);
+    
+    try {
+      // Parse subscriptions JSON if it's a string
+      let parsedSubscriptions;
+      if (typeof subscriptions === 'string') {
+        try {
+          parsedSubscriptions = JSON.parse(subscriptions);
+        } catch (error) {
+          console.error(chalk.red('Error: Invalid JSON format for subscriptions'));
+          console.log(chalk.yellow('Example: \'[{"collection": "users", "filters": {"status": "active"}}]\''));
+          return;
+        }
+      } else {
+        parsedSubscriptions = subscriptions;
+      }
+
+      if (!Array.isArray(parsedSubscriptions)) {
+        console.error(chalk.red('Error: Subscriptions must be an array'));
+        return;
+      }
+
+      console.log(chalk.blue(`Connecting to real-time stream for ${parsedSubscriptions.length} subscription${parsedSubscriptions.length === 1 ? '' : 's'}...`));
+      
+      // Create a streaming token first
+      const tokenResponse = await fetch(`${this.apiUrl}/api/token/${projectName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'streaming',
+          subscriptions: parsedSubscriptions,
+          expires_in: options.expires ? parseInt(options.expires, 10) : 3600,
+          api_key: apiKey
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenResponse.ok) {
+        console.error(chalk.red(`Token creation failed: ${tokenData.error || 'Unknown error'}`));
+        return;
+      }
+
+      console.log(chalk.green('✅ Connected to stream!'));
+      console.log(`  Token: ${chalk.yellow(tokenData.token)}`);
+      console.log(`  Subscriptions: ${chalk.cyan(parsedSubscriptions.length)}`);
+      console.log('');
+      console.log(chalk.blue('📡 Listening for real-time updates... (Press Ctrl+C to stop)'));
+      console.log('');
+
+      // Connect to SSE stream
+      const { default: EventSource } = await import('eventsource');
+      const subscriptionsParam = encodeURIComponent(JSON.stringify(parsedSubscriptions));
+      const eventSource = new EventSource(`${this.apiUrl}/api/subscribe/${projectName}?token=${tokenData.token}&subscriptions=${subscriptionsParam}`);
+
+      eventSource.onopen = () => {
+        console.log(chalk.green('🔗 Stream connection established'));
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const timestamp = new Date().toLocaleTimeString();
+          
+          if (data.type === 'connected') {
+            console.log(chalk.green(`[${timestamp}] ✅ Connected (ID: ${data.connectionId})`));
+          } else if (data.type === 'ping') {
+            if (options.verbose) {
+              console.log(chalk.gray(`[${timestamp}] 💓 Heartbeat`));
+            }
+          } else if (data.type === 'message') {
+            console.log(chalk.cyan(`[${timestamp}] 📨 Message received:`));
+            console.log(chalk.white(`  Subscription: ${JSON.stringify(data.subscription)}`));
+            console.log(chalk.white(`  Data: ${JSON.stringify(data.data, null, 2)}`));
+          } else {
+            console.log(chalk.yellow(`[${timestamp}] 📡 ${JSON.stringify(data)}`));
+          }
+        } catch (error) {
+          console.log(chalk.red(`[${new Date().toLocaleTimeString()}] ❌ Parse error: ${event.data}`));
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error(chalk.red('❌ Stream connection error:'), error);
+        eventSource.close();
+      };
+
+      // Handle graceful shutdown
+      process.on('SIGINT', () => {
+        console.log(chalk.yellow('\n🔌 Closing stream connection...'));
+        eventSource.close();
+        process.exit(0);
+      });
+
+    } catch (error) {
+      console.error(chalk.red('Error connecting to stream:'), error.message);
+    }
+  }
+
   async search(query, options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options);
 
