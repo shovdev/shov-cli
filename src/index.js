@@ -1108,9 +1108,29 @@ class ShovCLI {
         spinner.fail(`Batch operation failed: ${data.error || 'Unknown error'}`);
         if (data.details) {
           console.log(chalk.red('Error details:'));
-          data.details.forEach((detail, index) => {
-            console.log(`  ${index + 1}. ${detail}`);
-          });
+          // Handle both array (validation errors) and object (execution errors) formats
+          if (Array.isArray(data.details)) {
+            // Validation errors - array of strings
+            data.details.forEach((detail, index) => {
+              console.log(`  ${index + 1}. ${detail}`);
+            });
+          } else if (typeof data.details === 'object') {
+            // Execution errors - object with transaction info
+            if (data.details.transactionId) {
+              console.log(`  Transaction ID: ${chalk.yellow(data.details.transactionId)}`);
+            }
+            if (data.details.failedAt !== undefined) {
+              console.log(`  Failed at operation: ${data.details.failedAt + 1}`);
+            }
+            if (data.details.results && Array.isArray(data.details.results)) {
+              console.log(`  Operation results:`);
+              data.details.results.forEach((result, index) => {
+                const status = result.success ? chalk.green('✅') : chalk.red('❌');
+                const error = result.error ? ` - ${result.error}` : '';
+                console.log(`    ${index + 1}. ${result.type || 'unknown'} ${status}${error}`);
+              });
+            }
+          }
         }
         return;
       }
