@@ -1536,10 +1536,9 @@ class ShovCLI {
       console.log(chalk.blue('📡 Listening for real-time updates... (Press Ctrl+C to stop)'));
       console.log('');
 
-      // Connect to SSE stream
+      // Connect to SSE stream using token only (subscriptions are stored in the token)
       const { EventSource } = await import('eventsource');
-      const subscriptionsParam = encodeURIComponent(JSON.stringify(parsedSubscriptions));
-      const eventSource = new EventSource(`${this.apiUrl}/api/subscribe/${projectName}?token=${tokenData.token}&subscriptions=${subscriptionsParam}`);
+      const eventSource = new EventSource(`${this.apiUrl}/api/subscribe/${projectName}?token=${tokenData.token}`);
 
       eventSource.onopen = () => {
         console.log(chalk.green('🔗 Stream connection established'));
