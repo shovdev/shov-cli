@@ -82,6 +82,11 @@ shov where users -f '{"age":25}'
 shov where users -f '{"age": {"$gte": 18}, "role": {"$in": ["admin", "moderator"]}}'
 shov where users -f '{"name": {"$like": "A%"}, "age": {"$between": [20, 35]}}'
 
+# Count items in collections
+shov count users
+shov count users -f '{"role": "admin"}'
+shov count users -f '{"age": {"$gte": 18}, "status": "active"}'
+
 # Find all items in a collection
 shov where users
 ```
@@ -102,6 +107,7 @@ shov where users
 - `shov forget <key>` - Delete a key-value pair
 - `shov add <collection> <value>` - Add an item to a collection
 - `shov where <collection>` - Find items in a collection (returns all if no filter)
+- `shov count <collection>` - Count items in a collection with optional filtering
 - `shov add-many <collection> <json_array>` - Add multiple items to a collection at once
 - `shov update <collection> <id> <value>` - Update an item by collection and ID
 - `shov remove <collection> <id>` - Remove an item from a collection by ID

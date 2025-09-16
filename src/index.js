@@ -973,6 +973,52 @@ class ShovCLI {
     }
   }
 
+  // Count items in collection with optional filters
+  async countInCollection(collection, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+
+    const body = {
+      name: collection
+    }
+
+    if (options.filter) {
+      try {
+        body.filter = JSON.parse(options.filter)
+      } catch {
+        throw new Error('Filter must be valid JSON')
+      }
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/api/count/${projectName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to count items in collection')
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(data, null, 2))
+      } else {
+        console.log(chalk.green(`✅ Found ${data.count} items in "${collection}"`))
+        if (options.filter) {
+          console.log(chalk.gray(`   Filter: ${options.filter}`))
+        }
+      }
+
+    } catch (error) {
+      throw new Error(`Failed to count items in collection: ${error.message}`)
+    }
+  }
+
   async removeItem(collection, itemId, options = {}) {
     const { default: ora } = await import('ora');
     const spinner = ora(`Removing item "${itemId}" from collection "${collection}"...`).start();

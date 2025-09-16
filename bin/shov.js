@@ -123,6 +123,21 @@ program
   });
 
 program
+  .command('count <collection>')
+  .description('Count the number of items in a collection with optional filtering.')
+  .option('-f, --filter <json>', 'JSON string to filter by')
+  .option('-p, --project <name>', 'Specify the project name')
+  .option('-k, --key <key>', 'Specify the API key')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (collection, options) => {
+    try {
+      await new ShovCLI(options).countInCollection(collection, options);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error.message}`));
+    }
+  });
+
+program
   .command('update <collection> <id> <value>')
   .description('Update an item in a collection by its ID.')
   .option('-p, --project <name>', 'Specify the project name')
