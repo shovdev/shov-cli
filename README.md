@@ -55,11 +55,13 @@ shov set user '{"name":"Alice","age":25}'
 
 ```bash
 # Add items to a collection
-shov add users '{"name":"Alice","age":25}'
-shov add users '{"name":"Bob","age":30}'
+shov add users '{"name":"Alice","age":25,"role":"admin"}'
+shov add users '{"name":"Bob","age":30,"role":"user"}'
 
-# Find items with filters
+# Find items with advanced filters
 shov where users -f '{"age":25}'
+shov where users -f '{"age": {"$gte": 18}, "role": {"$in": ["admin", "moderator"]}}'
+shov where users -f '{"name": {"$like": "A%"}, "age": {"$between": [20, 35]}}'
 
 # Find all items in a collection
 shov where users
@@ -84,6 +86,7 @@ shov where users
 - `shov update <collection> <id> <value>` - Update an item by collection and ID
 - `shov remove <collection> <id>` - Remove an item from a collection by ID
 - `shov clear <collection>` - Clear all items from a collection
+- `shov batch <operations>` - Execute multiple operations atomically in a single transaction
 - `shov contents` - List all memory contents (keys, collections, files)
 - `shov search <query>` - Perform a semantic search across keys and collections
 
@@ -202,8 +205,10 @@ shov add-many products '[
 # Search with natural language
 shov search "stringed instrument" -c products
 
-# Search with filters and options
+# Search with advanced filters and options
 shov search "musical equipment" --top-k 5 --min-score 0.7 --filters '{"type":"Electric Guitar"}'
+shov search "affordable instruments" --filters '{"price": {"$between": [100, 500]}, "type": {"$in": ["Guitar", "Drums"]}}'
+shov search "professional gear" --filters '{"brand": {"$like": "Roland%"}, "price": {"$gte": 1000}}'
 
 # Search across all collections in project
 shov search "musical equipment"
@@ -223,6 +228,42 @@ shov send-otp user@example.com
 # Verify the code
 shov verify-otp user@example.com 123456
 ```
+
+### Atomic Transactions
+
+```bash
+# Execute multiple operations atomically
+shov batch '[
+  {"type": "set", "name": "user:123", "value": {"name": "John", "email": "john@example.com"}},
+  {"type": "add", "collection": "orders", "value": {"userId": "123", "total": 99.99}},
+  {"type": "update", "collection": "inventory", "id": "item-456", "value": {"stock": 10}}
+]'
+
+# E-commerce checkout example (atomic transaction)
+shov batch '[
+  {"type": "add", "collection": "orders", "value": {"userId": "123", "items": [{"id": "prod-1", "qty": 2}], "total": 199.98}},
+  {"type": "update", "collection": "inventory", "id": "prod-1", "value": {"stock": 8}},
+  {"type": "set", "name": "user:123:last_order", "value": "order-abc123"}
+]'
+
+# Read-your-writes consistency
+shov batch '[
+  {"type": "set", "name": "counter", "value": 1},
+  {"type": "get", "name": "counter"},
+  {"type": "set", "name": "counter", "value": 2}
+]' --json
+```
+
+**Supported operation types in batch:**
+- `set` - Set key-value pairs
+- `get` - Read values (for read-your-writes consistency)
+- `add` - Add items to collections
+- `update` - Update collection items by ID
+- `remove` - Remove collection items by ID
+- `forget` - Delete keys
+- `clear` - Clear entire collections
+
+**⚠️ Important**: All operations in a batch are executed atomically. If any operation fails, the entire batch is rolled back and no changes are made.
 
 ### Real-time Streaming
 
@@ -322,6 +363,13 @@ const users = await shov.where('users', { filter: { age: 25 } })
 
 // Vector search
 const results = await shov.search('find Alice', { collection: 'users' })
+
+// Atomic transactions
+const batchResult = await shov.batch([
+  { type: 'set', name: 'user:123', value: { name: 'John', email: 'john@example.com' } },
+  { type: 'add', collection: 'orders', value: { userId: '123', total: 99.99 } },
+  { type: 'update', collection: 'inventory', id: 'item-456', value: { stock: 10 } }
+])
 
 // Real-time streaming
 const { eventSource, close } = await shov.subscribe([

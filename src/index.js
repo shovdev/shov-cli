@@ -1016,6 +1016,87 @@ class ShovCLI {
     }
   }
 
+  async batch(operationsJson, options = {}) {
+    const { default: ora } = await import('ora');
+    const spinner = ora('Executing batch operations...').start();
+    try {
+      const { projectName, apiKey } = await this.getProjectConfig(options);
+      
+      // Parse operations JSON
+      let operations;
+      try {
+        operations = JSON.parse(operationsJson);
+        if (!Array.isArray(operations)) {
+          throw new Error('Operations must be a JSON array');
+        }
+      } catch (error) {
+        spinner.fail('Invalid JSON format for operations');
+        console.log(chalk.yellow('Example: \'[{"type": "set", "name": "user:123", "value": {"name": "John"}}, {"type": "add", "collection": "orders", "value": {"userId": "123", "total": 99.99}}]\''));
+        return;
+      }
+
+      if (operations.length === 0) {
+        spinner.fail('Operations array cannot be empty');
+        return;
+      }
+
+      if (operations.length > 50) {
+        spinner.fail('Maximum 50 operations allowed per batch');
+        return;
+      }
+
+      spinner.text = `Executing ${operations.length} operations atomically...`;
+
+      const response = await fetch(`${this.apiUrl}/api/batch/${projectName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({ operations })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        spinner.fail(`Batch operation failed: ${data.error || 'Unknown error'}`);
+        if (data.details) {
+          console.log(chalk.red('Error details:'));
+          data.details.forEach((detail, index) => {
+            console.log(`  ${index + 1}. ${detail}`);
+          });
+        }
+        return;
+      }
+
+      if (options.json) {
+        spinner.stop();
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        spinner.succeed(`Batch completed successfully! Executed ${data.operationsExecuted} operations.`);
+        console.log(`  Transaction ID: ${chalk.yellow(data.transactionId)}`);
+        
+        if (data.results && data.results.length > 0) {
+          console.log(chalk.green('  Results:'));
+          data.results.forEach((result, index) => {
+            const op = operations[index];
+            if (result.success) {
+              let resultText = `    ${index + 1}. ${chalk.cyan(op.type)}`;
+              if (op.name) resultText += ` "${op.name}"`;
+              if (op.collection) resultText += ` in "${op.collection}"`;
+              if (result.id) resultText += ` → ${chalk.yellow(result.id)}`;
+              console.log(resultText + ' ✅');
+            } else {
+              console.log(`    ${index + 1}. ${chalk.cyan(op.type)} → ${chalk.red('Failed')}`);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      spinner.fail(`Batch operation failed: ${error.message}`);
+    }
+  }
+
   async forgetItem(idOrName, options = {}) {
     const { default: ora } = await import('ora');
     const spinner = ora('Forgetting item...').start();

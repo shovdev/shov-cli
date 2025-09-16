@@ -163,6 +163,20 @@ program
   });
 
 program
+  .command('batch <operations>')
+  .description('Execute multiple operations atomically in a single transaction')
+  .option('-p, --project <name>', 'Specify the project name')
+  .option('-k, --key <key>', 'Specify the API key')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (operations, options) => {
+    try {
+      await new ShovCLI(options).batch(operations, options);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error.message}`));
+    }
+  });
+
+program
   .command('forget <key>')
   .description('Forget a key-value pair.')
   .option('-p, --project <name>', 'Specify the project name')
