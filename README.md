@@ -38,6 +38,25 @@ This will:
 - Add environment variables to your `.env` file
 - If email is provided, send a verification code for account linking
 
+### Claiming Anonymous Projects
+
+If you created a project anonymously, you can claim it later to manage it from your dashboard:
+
+```bash
+# Claim an anonymous project
+shov claim my-anonymous-project user@example.com
+
+# The CLI will:
+# 1. Send a verification code to your email
+# 2. Prompt you to enter the code
+# 3. Complete the claim process
+```
+
+This allows you to:
+- Access the project from the Shov dashboard
+- Manage team members and permissions
+- View usage analytics and billing
+
 ### 2. Store and retrieve data
 
 ```bash
@@ -73,6 +92,7 @@ shov where users
 
 - `shov new [projectName]` - Create a new Shov project and API key
   - `--email <email>` - Link project to your email (requires verification)
+- `shov claim <projectName> <email>` - Claim an anonymous project by associating it with your email
 - `shov config` - Show current project configuration
 
 ### Data Operations
