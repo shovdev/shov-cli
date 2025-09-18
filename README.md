@@ -1,6 +1,6 @@
 # Shov CLI
 
-AI-native database with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
+AI Database Engine with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
 
 <p align="center">
   <a href="https://shov.com" target="_blank"><strong>Website / Docs</strong></a> •
