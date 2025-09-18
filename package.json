@@ -1,6 +1,6 @@
 {
   "name": "shov",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "description": "Shov CLI - AI Database Engine with vector search and real-time streaming",
   "main": "dist/index.js",
   "bin": {

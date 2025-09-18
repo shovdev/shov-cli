@@ -1438,7 +1438,6 @@ class ShovCLI {
     
     // Handle JSON output without spinner
     if (options.json) {
-      console.log('JSON MODE ACTIVATED'); // Debug log
       try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
         const data = await this.apiCall(`/files-list/${projectName}`, {}, apiKey, options);
