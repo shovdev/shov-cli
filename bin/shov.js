@@ -281,6 +281,7 @@ files
     .description('List all files in the project')
     .option('-p, --project <project>', 'Project name (or use .shov config)')
     .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+    .option('--json', 'Output JSON for scripting')
     .action(async (options) => {
         try {
             const cli = new ShovCLI(options);

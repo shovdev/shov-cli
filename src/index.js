@@ -1435,6 +1435,27 @@ class ShovCLI {
 
   async listFiles(options = {}) {
     const { default: ora } = await import('ora');
+    
+    // Handle JSON output without spinner
+    if (options.json) {
+      console.log('JSON MODE ACTIVATED'); // Debug log
+      try {
+        const { projectName, apiKey } = await this.getProjectConfig(options);
+        const data = await this.apiCall(`/files-list/${projectName}`, {}, apiKey, options);
+        if (data.success) {
+          console.log(JSON.stringify(data, null, 2));
+        } else {
+          console.error(JSON.stringify({ error: data.error || 'Unknown error' }, null, 2));
+          process.exit(1);
+        }
+      } catch (error) {
+        console.error(JSON.stringify({ error: error.message }, null, 2));
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Handle regular output with spinner
     const spinner = ora('Listing files...').start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
