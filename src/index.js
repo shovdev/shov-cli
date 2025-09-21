@@ -1307,7 +1307,11 @@ class ShovCLI {
         Object.entries(grouped).forEach(([type, items]) => {
           console.log(`\n  ${chalk.bold(type.toUpperCase())} (${items.length}):`);
           items.forEach(item => {
-            console.log(`    ${chalk.yellow(item.id)} - ${chalk.cyan(item.name)}`);
+            if (item.type === 'collection') {
+              console.log(`    ${chalk.yellow(item.count || 'undefined')} - ${chalk.cyan(item.name)}`);
+            } else {
+              console.log(`    ${chalk.yellow(item.id)} - ${chalk.cyan(item.name)}`);
+            }
           });
         });
       } else {
