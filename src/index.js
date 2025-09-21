@@ -1104,7 +1104,28 @@ class ShovCLI {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      // Check for both HTTP errors and V3 rollback failures
+      if (!response.ok || data.success === false) {
+        // Handle V3 rollback failures specifically
+        if (data.rollbackPerformed) {
+          spinner.fail(`Batch operation failed and was rolled back: ${data.error || 'Unknown error'}`);
+          console.log(chalk.yellow('🔄 All operations were rolled back to maintain data consistency.'));
+          
+          if (data.failedOperation !== undefined) {
+            console.log(chalk.red(`Failed at operation ${data.failedOperation + 1} (${data.operationType})`));
+          }
+          
+          if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+            console.log(chalk.blue('Operations completed before failure:'));
+            data.results.forEach((result, index) => {
+              const status = result.success ? chalk.green('✅') : chalk.red('❌');
+              console.log(`  ${index + 1}. Operation ${result.operationIndex + 1} ${status}`);
+            });
+          }
+          return;
+        }
+        
+        // Handle other batch failures
         spinner.fail(`Batch operation failed: ${data.error || 'Unknown error'}`);
         if (data.details) {
           console.log(chalk.red('Error details:'));
@@ -1135,27 +1156,50 @@ class ShovCLI {
         return;
       }
 
+      // Check if any operations failed
+      const failedOperations = data.results ? data.results.filter(r => !r.success) : [];
+      const hasFailures = failedOperations.length > 0;
+
       if (options.json) {
         spinner.stop();
         console.log(JSON.stringify(data, null, 2));
+        
+        // Exit with error code if any operations failed
+        if (hasFailures) {
+          process.exit(1);
+        }
       } else {
-        spinner.succeed(`Batch completed successfully! Executed ${data.operationsExecuted} operations.`);
-        console.log(`  Transaction ID: ${chalk.yellow(data.transactionId)}`);
+        if (hasFailures) {
+          spinner.fail(`Batch partially failed! ${failedOperations.length} of ${data.operationsExecuted} operations failed.`);
+          console.log(`  Transaction ID: ${chalk.yellow(data.transactionId)}`);
+          console.log(chalk.red('  ⚠️  Some operations failed - data may be in an inconsistent state!'));
+        } else {
+          spinner.succeed(`Batch completed successfully! Executed ${data.operationsExecuted} operations.`);
+          console.log(`  Transaction ID: ${chalk.yellow(data.transactionId)}`);
+        }
         
         if (data.results && data.results.length > 0) {
-          console.log(chalk.green('  Results:'));
+          const resultColor = hasFailures ? chalk.yellow : chalk.green;
+          console.log(resultColor('  Results:'));
           data.results.forEach((result, index) => {
             const op = operations[index];
             if (result.success) {
               let resultText = `    ${index + 1}. ${chalk.cyan(op.type)}`;
               if (op.name) resultText += ` "${op.name}"`;
               if (op.collection) resultText += ` in "${op.collection}"`;
-              if (result.id) resultText += ` → ${chalk.yellow(result.id)}`;
+              if (result.result && result.result.id) resultText += ` → ${chalk.yellow(result.result.id)}`;
               console.log(resultText + ' ✅');
             } else {
-              console.log(`    ${index + 1}. ${chalk.cyan(op.type)} → ${chalk.red('Failed')}`);
+              let errorText = `    ${index + 1}. ${chalk.cyan(op.type)} → ${chalk.red('Failed')}`;
+              if (result.error) errorText += ` - ${result.error}`;
+              console.log(errorText);
             }
           });
+        }
+        
+        // Exit with error code if any operations failed
+        if (hasFailures) {
+          process.exit(1);
         }
       }
     } catch (error) {
