@@ -130,6 +130,20 @@ shov where users
 - `shov subscribe <subscriptions>` - Subscribe to real-time updates via Server-Sent Events
 - `shov broadcast <subscription> <message>` - Broadcast a message to active subscribers
 
+### Edge Functions
+- `shov edge list` - List all deployed edge functions
+- `shov edge create <name> <file>` - Deploy a JavaScript function to the global edge network
+- `shov edge update <name> <file>` - Update an existing edge function with new code
+- `shov edge delete <name>` - Delete an edge function from the global network
+- `shov edge rollback <name> [version]` - Rollback an edge function to a previous version
+- `shov edge logs [name]` - View real-time logs from your edge functions
+
+### Secrets Management
+- `shov secrets list` - List all secret names (values never shown for security)
+- `shov secrets set <name> <value>` - Set a secret for edge functions
+- `shov secrets set-many <secrets-json>` - Set multiple secrets at once (bulk operation)
+- `shov secrets delete <name>` - Delete a secret from edge functions
+
 ### Options
 
 All data commands support these options:
@@ -325,6 +339,54 @@ shov broadcast '{"key": "config"}' '{"theme": "dark", "updated_at": "2024-01-15T
 - **Custom Channels**: Send and receive custom messages for chat, notifications, etc.
 - **Filtered Subscriptions**: Only receive updates matching your criteria
 - **Auto-broadcasts**: All data writes (set, add, update, remove) automatically notify subscribers
+
+### Edge Functions
+
+```bash
+# List all deployed edge functions
+shov edge list
+
+# Deploy a simple edge function
+echo 'export default async function(req) { 
+  return new Response(JSON.stringify({ message: "Hello from edge!" })); 
+}' > hello.js
+shov edge create hello-world hello.js
+
+# Update an edge function
+shov edge update hello-world hello-v2.js
+
+# View real-time logs
+shov edge logs hello-world
+
+# Rollback to previous version
+shov edge rollback hello-world
+
+# Delete an edge function
+shov edge delete hello-world
+```
+
+### Secrets Management
+
+```bash
+# List all secret names
+shov secrets list
+
+# Set a secret for all functions
+shov secrets set DATABASE_URL "postgresql://user:pass@localhost:5432/db"
+
+# Set a secret for specific functions
+shov secrets set API_KEY "sk_live_abc123" --functions "user-auth,payment-api"
+
+# Set multiple secrets at once
+shov secrets set-many '[
+  {"name": "DATABASE_URL", "value": "postgresql://user:pass@localhost:5432/db"},
+  {"name": "REDIS_URL", "value": "redis://localhost:6379"},
+  {"name": "JWT_SECRET", "value": "super-secret-jwt-key"}
+]'
+
+# Delete a secret
+shov secrets delete OLD_API_KEY
+```
 
 ### JSON Output & Scripting
 

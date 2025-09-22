@@ -344,6 +344,11 @@ class ShovCLI {
           console.log(`💾 Project details saved to local .shov file.`)
           this.addToEnv(data.project.apiKey, data.project.name)
           
+          // Deploy blocks if specified
+          if (options.blocks) {
+            await this.deployBlocksAfterProjectCreation(options.blocks, data.project.name, data.project.apiKey)
+          }
+          
           // Show next steps with examples
           await this.showFirstTimeExamples()
           
@@ -359,6 +364,11 @@ class ShovCLI {
             apiKey: data.project.apiKey,
           })
           this.addToEnv(data.project.apiKey, data.project.name)
+          
+          // Deploy blocks if specified
+          if (options.blocks) {
+            await this.deployBlocksAfterProjectCreation(options.blocks, data.project.name, data.project.apiKey)
+          }
         }
       } else {
         spinner.fail(`❌ Project creation failed: ${data.error || 'Unknown error'}`)
@@ -2330,6 +2340,337 @@ class ShovCLI {
       }
     } catch (error) {
       throw new Error(`Failed to delete secret: ${error.message}`)
+    }
+  }
+
+  // Helper method to deploy blocks after project creation
+  async deployBlocksAfterProjectCreation(blocksString, projectName, apiKey) {
+    const { default: ora } = await import('ora')
+    
+    const blocks = blocksString.split(',').map(b => b.trim()).filter(Boolean)
+    if (blocks.length === 0) return
+    
+    console.log(chalk.bold(`\n📦 Deploying ${blocks.length} block${blocks.length > 1 ? 's' : ''}...`))
+    
+    for (const blockSlug of blocks) {
+      const spinner = ora(`Deploying ${blockSlug}...`).start()
+      
+      try {
+        const params = new URLSearchParams()
+        params.append('project', projectName)
+        
+        const url = `/blocks/deploy/${blockSlug}?${params.toString()}`
+        const result = await this.apiCall(url, {}, apiKey, {})
+        
+        spinner.succeed(`${blockSlug} deployed successfully`)
+        
+        if (result.functionsDeployed && result.functionsDeployed.length > 0) {
+          console.log(`  ${chalk.gray('Functions:')} ${result.functionsDeployed.join(', ')}`)
+        }
+        
+        if (result.secretsCreated && result.secretsCreated.length > 0) {
+          console.log(`  ${chalk.gray('Secrets created:')} ${result.secretsCreated.join(', ')}`)
+        }
+      } catch (error) {
+        spinner.fail(`Failed to deploy ${blockSlug}: ${error.message}`)
+      }
+    }
+    
+    console.log(chalk.gray('\n💡 Set secret values with: shov secrets set <name> <value>'))
+  }
+
+  // ============================================================================
+  // BLOCKS MANAGEMENT
+  // ============================================================================
+
+  async blocksList(options = {}) {
+    try {
+      const params = new URLSearchParams()
+      if (options.category) params.append('category', options.category)
+      if (options.author) params.append('author', options.author)
+      if (options.search) params.append('search', options.search)
+      
+      const url = `/blocks/list${params.toString() ? '?' + params.toString() : ''}`
+      const result = await this.apiCall(url, null, null, options, 'GET')
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      if (!result.blocks || result.blocks.length === 0) {
+        console.log(chalk.yellow('📦 No blocks found'))
+        return
+      }
+      
+      console.log(chalk.bold(`\n📦 Available Blocks (${result.blocks.length})`))
+      console.log(chalk.gray('─'.repeat(60)))
+      
+      result.blocks.forEach(block => {
+        const author = block.author.isOfficial ? 
+          chalk.blue(`@${block.author.slug}`) : 
+          chalk.gray(`@${block.author.slug}`)
+        
+        console.log(`${chalk.cyan(block.slug)} ${chalk.gray('by')} ${author}`)
+        console.log(`  ${block.description || 'No description'}`)
+        console.log(`  ${chalk.gray(`v${block.latest_version} • ${block.category} • ${block.total_deployments} deployments`)}`)
+        console.log()
+      })
+      
+      if (result.pagination && result.pagination.hasNext) {
+        console.log(chalk.gray(`Showing ${result.blocks.length} of ${result.pagination.total} blocks`))
+        console.log(chalk.blue('Use --page and --limit options to see more'))
+      }
+    } catch (error) {
+      throw new Error(`Failed to list blocks: ${error.message}`)
+    }
+  }
+
+  async blocksShow(slug, options = {}) {
+    try {
+      const params = new URLSearchParams()
+      if (options.version) params.append('version', options.version)
+      
+      const url = `/blocks/get/${slug}${params.toString() ? '?' + params.toString() : ''}`
+      const result = await this.apiCall(url, null, null, options, 'GET')
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      const block = result.block
+      const author = block.author.isOfficial ? 
+        chalk.blue(`@${block.author.slug}`) : 
+        chalk.gray(`@${block.author.slug}`)
+      
+      console.log(chalk.bold(`\n📦 ${block.name}`))
+      console.log(`${chalk.cyan(block.slug)} ${chalk.gray('by')} ${author}`)
+      console.log(`${chalk.gray('Category:')} ${block.category}`)
+      console.log(`${chalk.gray('Version:')} v${block.version.version}`)
+      console.log(`${chalk.gray('Deployments:')} ${block.total_deployments}`)
+      console.log()
+      
+      if (block.description) {
+        console.log(chalk.bold('Description:'))
+        console.log(block.description)
+        console.log()
+      }
+      
+      if (block.version.readme) {
+        console.log(chalk.bold('README:'))
+        console.log(block.version.readme)
+        console.log()
+      }
+      
+      if (block.functions && block.functions.length > 0) {
+        console.log(chalk.bold(`Functions (${block.functions.length}):`))
+        block.functions.forEach(func => {
+          const methods = func.methods ? func.methods.join(', ') : 'GET'
+          console.log(`  ${chalk.cyan(func.name)} ${chalk.gray(`[${methods}]`)}`)
+          if (func.description) {
+            console.log(`    ${func.description}`)
+          }
+          if (func.path) {
+            console.log(`    ${chalk.gray('Path:')} ${func.path}`)
+          }
+        })
+        console.log()
+      }
+      
+      if (block.secrets && block.secrets.length > 0) {
+        console.log(chalk.bold(`Required Secrets (${block.secrets.length}):`))
+        block.secrets.forEach(secret => {
+          const required = secret.required ? chalk.red('*') : chalk.gray('?')
+          console.log(`  ${required} ${chalk.yellow(secret.name)}`)
+          if (secret.description) {
+            console.log(`    ${secret.description}`)
+          }
+        })
+        console.log()
+      }
+      
+      if (block.collections && block.collections.length > 0) {
+        console.log(chalk.bold(`Collections (${block.collections.length}):`))
+        block.collections.forEach(collection => {
+          console.log(`  ${chalk.magenta(collection.name)}`)
+          if (collection.description) {
+            console.log(`    ${collection.description}`)
+          }
+        })
+        console.log()
+      }
+      
+      console.log(chalk.gray('─'.repeat(60)))
+      console.log(`${chalk.blue('Deploy:')} shov blocks deploy ${block.slug}`)
+      if (options.version !== block.latest_version) {
+        console.log(`${chalk.blue('Latest:')} shov blocks show ${block.slug}`)
+      }
+    } catch (error) {
+      throw new Error(`Failed to show block: ${error.message}`)
+    }
+  }
+
+  async blocksDeploy(slug, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const params = new URLSearchParams()
+      if (options.version) params.append('version', options.version)
+      params.append('project', projectName)
+      
+      const url = `/blocks/deploy/${slug}?${params.toString()}`
+      const result = await this.apiCall(url, {}, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ ${result.message}`))
+      
+      if (result.functionsDeployed && result.functionsDeployed.length > 0) {
+        console.log(chalk.bold('\nFunctions deployed:'))
+        result.functionsDeployed.forEach(func => {
+          console.log(`  ${chalk.cyan(func)}`)
+        })
+      }
+      
+      if (result.secretsCreated && result.secretsCreated.length > 0) {
+        console.log(chalk.bold('\nSecrets created (with blank values):'))
+        result.secretsCreated.forEach(secret => {
+          console.log(`  ${chalk.yellow(secret)}`)
+        })
+        console.log(chalk.gray('\n💡 Set secret values with: shov secrets set <name> <value>'))
+      }
+      
+      console.log(chalk.gray(`\nDeployment ID: ${result.deploymentId}`))
+    } catch (error) {
+      throw new Error(`Failed to deploy block: ${error.message}`)
+    }
+  }
+
+  async blocksCreate(slug, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      // Validate required options
+      if (!options.name) {
+        throw new Error('Block name is required (use --name)')
+      }
+      if (!options.category) {
+        throw new Error('Block category is required (use --category)')
+      }
+      if (!options.org) {
+        throw new Error('Organization ID is required (use --org)')
+      }
+      
+      // Read README if provided
+      let readme = ''
+      if (options.readme) {
+        if (!fs.existsSync(options.readme)) {
+          throw new Error(`README file not found: ${options.readme}`)
+        }
+        readme = fs.readFileSync(options.readme, 'utf8')
+      }
+      
+      // Read functions from directory if provided
+      let functions = []
+      if (options.functions) {
+        if (!fs.existsSync(options.functions)) {
+          throw new Error(`Functions directory not found: ${options.functions}`)
+        }
+        
+        const funcDir = options.functions
+        const files = fs.readdirSync(funcDir).filter(f => f.endsWith('.js'))
+        
+        for (const file of files) {
+          const funcName = path.basename(file, '.js')
+          const funcPath = path.join(funcDir, file)
+          const code = fs.readFileSync(funcPath, 'utf8')
+          
+          functions.push({
+            name: funcName,
+            description: `${funcName} function`,
+            code: code,
+            methods: ['GET', 'POST'],
+            path: `/${funcName}`
+          })
+        }
+        
+        if (functions.length === 0) {
+          throw new Error('No JavaScript files found in functions directory')
+        }
+      }
+      
+      const blockData = {
+        slug,
+        name: options.name,
+        description: options.description || '',
+        category: options.category,
+        organizationId: options.org,
+        readme,
+        functions,
+        secrets: [], // TODO: Parse from function code or separate config
+        collections: [], // TODO: Parse from function code or separate config
+        version: options.version || '1.0.0'
+      }
+      
+      const result = await this.apiCall('/blocks/create', blockData, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ ${result.message}`))
+      console.log(`${chalk.gray('Block ID:')} ${result.blockId}`)
+      console.log(`${chalk.gray('Slug:')} ${chalk.cyan(result.slug)}`)
+      console.log(`${chalk.gray('Version:')} v${result.version}`)
+      
+      if (functions.length > 0) {
+        console.log(`${chalk.gray('Functions:')} ${functions.length}`)
+      }
+      
+      console.log(chalk.gray('\n💡 Your block is now available at:'))
+      console.log(chalk.blue(`   https://shov.com/blocks/${result.slug}`))
+    } catch (error) {
+      throw new Error(`Failed to create block: ${error.message}`)
+    }
+  }
+
+  async blocksVersions(slug, options = {}) {
+    try {
+      // TODO: Implement versions endpoint in API
+      const result = await this.apiCall(`/blocks/versions/${slug}`, null, null, options, 'GET')
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.bold(`\n📦 ${slug} - Version History`))
+      console.log(chalk.gray('─'.repeat(60)))
+      
+      if (!result.versions || result.versions.length === 0) {
+        console.log(chalk.yellow('No versions found'))
+        return
+      }
+      
+      result.versions.forEach(version => {
+        const isLatest = version.version === result.latestVersion
+        const versionLabel = isLatest ? 
+          chalk.green(`v${version.version} (latest)`) : 
+          chalk.gray(`v${version.version}`)
+        
+        console.log(`${versionLabel} - ${chalk.gray(version.createdAt)}`)
+        if (version.changelog) {
+          console.log(`  ${version.changelog}`)
+        }
+        console.log()
+      })
+    } catch (error) {
+      throw new Error(`Failed to get block versions: ${error.message}`)
     }
   }
 }
