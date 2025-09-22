@@ -2002,6 +2002,336 @@ class ShovCLI {
       console.log(chalk.gray('Run "shov new" to create a project or "shov switch <project>" to activate one.'))
     }
   }
+
+  // Edge Functions Management
+  async edgeList(options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const result = await this.apiCall(`/edge-list/${projectName}`, {}, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      if (!result.functions || result.functions.length === 0) {
+        console.log(chalk.yellow('No edge functions found.'))
+        console.log(chalk.gray('Run "shov edge create <name> <file>" to deploy your first function.'))
+        return
+      }
+      
+      console.log(chalk.bold(`Edge Functions (${result.functions.length}):`))
+      console.log('')
+      
+      result.functions.forEach(func => {
+        console.log(`  ${chalk.cyan(func.name)}`)
+        console.log(`    URL: ${chalk.blue(func.url || `https://${projectName}.shov.com/api/${func.name}`)}`)
+        console.log(`    Size: ${chalk.gray(func.size || 'Unknown')}`)
+        console.log(`    Updated: ${chalk.gray(new Date(func.deployedAt || func.updatedAt).toLocaleString())}`)
+        console.log('')
+      })
+    } catch (error) {
+      throw new Error(`Failed to list edge functions: ${error.message}`)
+    }
+  }
+
+  async edgeCreate(functionName, filePath, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`)
+    }
+    
+    const code = fs.readFileSync(filePath, 'utf8')
+    const config = {
+      timeout: options.timeout ? parseInt(options.timeout) : 10000,
+      description: options.description || `Edge function: ${functionName}`
+    }
+    
+    try {
+      const result = await this.apiCall(`/edge-create/${projectName}`, {
+        name: functionName,
+        code,
+        config
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Edge function "${functionName}" created successfully!`))
+      console.log(`   URL: ${chalk.blue(result.url || `https://${projectName}.shov.com/api/${functionName}`)}`)
+      console.log(`   Size: ${chalk.gray(result.size || 'Unknown')}`)
+      console.log(`   Deployed: ${chalk.gray(new Date(result.deployedAt || Date.now()).toLocaleString())}`)
+    } catch (error) {
+      throw new Error(`Failed to create edge function: ${error.message}`)
+    }
+  }
+
+  async edgeUpdate(functionName, filePath, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`)
+    }
+    
+    const code = fs.readFileSync(filePath, 'utf8')
+    const config = {
+      timeout: options.timeout ? parseInt(options.timeout) : 10000,
+      description: options.description || `Edge function: ${functionName}`
+    }
+    
+    try {
+      const result = await this.apiCall(`/edge-update/${projectName}`, {
+        name: functionName,
+        code,
+        config
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Edge function "${functionName}" updated successfully!`))
+      console.log(`   URL: ${chalk.blue(result.url || `https://${projectName}.shov.com/api/${functionName}`)}`)
+      console.log(`   Version: ${chalk.gray(result.version || 'Unknown')}`)
+      console.log(`   Updated: ${chalk.gray(new Date(result.deployedAt || Date.now()).toLocaleString())}`)
+    } catch (error) {
+      throw new Error(`Failed to update edge function: ${error.message}`)
+    }
+  }
+
+  async edgeDelete(functionName, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const result = await this.apiCall(`/edge-delete/${projectName}`, {
+        name: functionName
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Edge function "${functionName}" deleted successfully!`))
+    } catch (error) {
+      throw new Error(`Failed to delete edge function: ${error.message}`)
+    }
+  }
+
+  async edgeRollback(functionName, version, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const result = await this.apiCall(`/edge-rollback/${projectName}`, {
+        name: functionName,
+        version: version ? parseInt(version) : undefined
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Edge function "${functionName}" rolled back successfully!`))
+      console.log(`   Version: ${chalk.gray(result.version || 'Previous')}`)
+      console.log(`   Rolled back: ${chalk.gray(new Date().toLocaleString())}`)
+    } catch (error) {
+      throw new Error(`Failed to rollback edge function: ${error.message}`)
+    }
+  }
+
+  async edgeLogs(functionName, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const endpoint = options.follow ? `/edge-tail/${projectName}` : `/edge-logs/${projectName}`
+      const payload = functionName ? { functionName } : {}
+      
+      if (options.follow) {
+        console.log(chalk.blue(`Following logs for ${functionName ? `function "${functionName}"` : 'all functions'}...`))
+        console.log(chalk.gray('Press Ctrl+C to stop'))
+        console.log('')
+        
+        // For follow mode, we'd need to implement SSE streaming
+        // For now, just show recent logs
+        console.log(chalk.yellow('Note: Real-time log following not yet implemented in CLI'))
+        console.log(chalk.gray('Showing recent logs instead...'))
+        console.log('')
+      }
+      
+      const result = await this.apiCall(endpoint, payload, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      if (!result.logs || result.logs.length === 0) {
+        console.log(chalk.yellow('No logs found.'))
+        return
+      }
+      
+      console.log(chalk.bold(`Logs (${result.logs.length} entries):`))
+      console.log('')
+      
+      result.logs.forEach(log => {
+        const timestamp = chalk.gray(new Date(log.timestamp).toLocaleString())
+        const level = log.level === 'error' ? chalk.red(log.level.toUpperCase()) : 
+                     log.level === 'warn' ? chalk.yellow(log.level.toUpperCase()) : 
+                     chalk.blue(log.level.toUpperCase())
+        const func = log.function ? chalk.cyan(`[${log.function}]`) : ''
+        const region = log.region ? chalk.gray(`(${log.region})`) : ''
+        
+        console.log(`${timestamp} ${level} ${func} ${region}`)
+        console.log(`  ${log.message}`)
+        if (log.duration) {
+          console.log(`  ${chalk.gray(`Duration: ${log.duration}`)}`)
+        }
+        console.log('')
+      })
+    } catch (error) {
+      throw new Error(`Failed to get edge function logs: ${error.message}`)
+    }
+  }
+
+  // Secrets Management
+  async secretsList(options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const result = await this.apiCall(`/secrets-list/${projectName}`, {}, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      if (!result.secrets || result.secrets.length === 0) {
+        console.log(chalk.yellow('No secrets found.'))
+        console.log(chalk.gray('Run "shov secrets set <name> <value>" to create your first secret.'))
+        return
+      }
+      
+      console.log(chalk.bold(`Secrets (${result.secrets.length}):`))
+      console.log('')
+      
+      result.secrets.forEach(secret => {
+        console.log(`  ${chalk.cyan(secret)}`)
+      })
+      
+      console.log('')
+      console.log(chalk.gray('Note: Secret values are never displayed for security.'))
+    } catch (error) {
+      throw new Error(`Failed to list secrets: ${error.message}`)
+    }
+  }
+
+  async secretsSet(name, value, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    const functions = options.functions ? options.functions.split(',').map(f => f.trim()) : []
+    
+    try {
+      const result = await this.apiCall(`/secrets-set/${projectName}`, {
+        name,
+        value,
+        functions
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Secret "${name}" set successfully!`))
+      if (functions.length > 0) {
+        console.log(`   Functions: ${chalk.gray(functions.join(', '))}`)
+      } else {
+        console.log(`   ${chalk.gray('Available to all functions')}`)
+      }
+    } catch (error) {
+      throw new Error(`Failed to set secret: ${error.message}`)
+    }
+  }
+
+  async secretsSetMany(secretsJson, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    let secrets
+    try {
+      secrets = JSON.parse(secretsJson)
+    } catch (error) {
+      throw new Error(`Invalid JSON: ${error.message}`)
+    }
+    
+    if (!Array.isArray(secrets)) {
+      throw new Error('Secrets must be an array of objects with "name" and "value" properties')
+    }
+    
+    const functions = options.functions ? options.functions.split(',').map(f => f.trim()) : []
+    
+    try {
+      const result = await this.apiCall(`/secrets-set-many/${projectName}`, {
+        secrets,
+        functions
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ ${secrets.length} secrets set successfully!`))
+      console.log(`   Secrets: ${chalk.cyan(result.secretNames.join(', '))}`)
+      if (functions.length > 0) {
+        console.log(`   Functions: ${chalk.gray(functions.join(', '))}`)
+      } else {
+        console.log(`   ${chalk.gray('Available to all functions')}`)
+      }
+      
+      if (result.results) {
+        console.log('')
+        console.log(chalk.bold('Results by function:'))
+        result.results.forEach(res => {
+          console.log(`  ${chalk.cyan(res.function)}: ${res.secretsSet} secrets set (${res.totalSecrets} total)`)
+        })
+      }
+    } catch (error) {
+      throw new Error(`Failed to set secrets: ${error.message}`)
+    }
+  }
+
+  async secretsDelete(name, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    const functions = options.functions ? options.functions.split(',').map(f => f.trim()) : []
+    
+    try {
+      const result = await this.apiCall(`/secrets-delete/${projectName}`, {
+        name,
+        functions
+      }, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Secret "${name}" deleted successfully!`))
+      if (functions.length > 0) {
+        console.log(`   Functions: ${chalk.gray(functions.join(', '))}`)
+      } else {
+        console.log(`   ${chalk.gray('Deleted from all functions')}`)
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete secret: ${error.message}`)
+    }
+  }
 }
 
 module.exports = { ShovCLI }

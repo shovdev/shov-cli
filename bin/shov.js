@@ -481,6 +481,180 @@ program
     }
   })
 
+// Edge Functions Commands
+const edge = program.command('edge').description('Manage edge functions');
+
+edge
+  .command('list')
+  .description('List all deployed edge functions')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.edgeList(options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+edge
+  .command('create <functionName> <filePath>')
+  .description('Create/deploy a new edge function')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--description <description>', 'Function description')
+  .option('--timeout <ms>', 'Function timeout in milliseconds')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (functionName, filePath, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.edgeCreate(functionName, filePath, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+edge
+  .command('update <functionName> <filePath>')
+  .description('Update an existing edge function')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--description <description>', 'Function description')
+  .option('--timeout <ms>', 'Function timeout in milliseconds')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (functionName, filePath, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.edgeUpdate(functionName, filePath, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+edge
+  .command('delete <functionName>')
+  .description('Delete an edge function')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (functionName, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.edgeDelete(functionName, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+edge
+  .command('rollback <functionName> [version]')
+  .description('Rollback an edge function to a previous version')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (functionName, version, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.edgeRollback(functionName, version, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+edge
+  .command('logs [functionName]')
+  .description('View edge function logs')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--follow', 'Follow logs in real-time')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (functionName, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.edgeLogs(functionName, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+// Secrets Management Commands
+const secrets = program.command('secrets').description('Manage edge function secrets');
+
+secrets
+  .command('list')
+  .description('List all secret names (values are never shown)')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.secretsList(options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+secrets
+  .command('set <name> <value>')
+  .description('Set a secret for edge functions')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--functions <functions>', 'Comma-separated list of functions (default: all functions)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (name, value, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.secretsSet(name, value, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+secrets
+  .command('set-many <secretsJson>')
+  .description('Set multiple secrets at once from JSON array')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--functions <functions>', 'Comma-separated list of functions (default: all functions)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (secretsJson, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.secretsSetMany(secretsJson, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+secrets
+  .command('delete <name>')
+  .description('Delete a secret')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--functions <functions>', 'Comma-separated list of functions (default: all functions)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (name, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.secretsDelete(name, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
 // Handle unknown commands
 program.on('command:*', () => {
   console.error(chalk.red('Invalid command:'), program.args.join(' '))
