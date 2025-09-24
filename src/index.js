@@ -9,7 +9,7 @@ const fetch = (...args) =>
 
 class ShovCLI {
   constructor(options = {}) {
-    // Public CLI only uses production
+    // Public CLI uses production by default
     this.apiUrl = 'https://shov.com'
     this.config = new ShovConfig()
   }
@@ -1498,7 +1498,7 @@ class ShovCLI {
     if (options.json) {
       try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/files-list/${projectName}`, {}, apiKey, options);
+        const data = await this.apiCall(`/api/${projectName}/files-list`, {}, apiKey, options);
         if (data.success) {
           console.log(JSON.stringify(data, null, 2));
         } else {
@@ -1516,7 +1516,7 @@ class ShovCLI {
     const spinner = ora('Listing files...').start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/files-list/${projectName}`, {}, apiKey, options);
+        const data = await this.apiCall(`/api/${projectName}/files-list`, {}, apiKey, options);
         if (data.success) {
             spinner.succeed(`Found ${data.files.length} files:`);
             console.table(data.files);
@@ -1533,7 +1533,7 @@ class ShovCLI {
     const spinner = ora(`Getting file info for ${fileId}...`).start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/files-get/${projectName}/${fileId}`, {}, apiKey, options);
+        const data = await this.apiCall(`/api/${projectName}/files-get/${fileId}`, {}, apiKey, options);
         if (data.success) {
             spinner.succeed('File found:');
             console.log(data.file);
@@ -1550,7 +1550,7 @@ class ShovCLI {
     const spinner = ora(`Deleting file ${fileId}...`).start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/files-delete/${projectName}/${fileId}`, {}, apiKey, options, 'DELETE');
+        const data = await this.apiCall(`/api/${projectName}/files-delete/${fileId}`, {}, apiKey, options, 'DELETE');
         if (data.success) {
             spinner.succeed(data.message);
         } else {
