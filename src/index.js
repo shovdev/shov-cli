@@ -152,7 +152,8 @@ class ShovCLI {
 `))
 
     // Main Headlines
-    console.log(chalk.bold.white('\n                           Instant Serverless Backends\n'))
+    console.log(chalk.bold.white('\n                           The backend for
+AI-coded apps\n'))
     console.log(chalk.gray('              The instant database for AI native apps.\n'))
     console.log(chalk.gray('           Zero provisioning, vector search, and millisecond responses.\n'))
 

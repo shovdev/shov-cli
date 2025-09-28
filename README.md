@@ -1,6 +1,7 @@
 # Shov CLI
 
-Instant Serverless Backends with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
+The backend for
+AI-coded apps with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
 
 <p align="center">
   <a href="https://shov.com" target="_blank"><strong>Website / Docs</strong></a> •
