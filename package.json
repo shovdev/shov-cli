@@ -1,8 +1,7 @@
 {
   "name": "shov",
   "version": "2.9.0",
-  "description": "Shov CLI - The backend for
-AI-coded apps with vector search and real-time streaming",
+  "description": "Shov CLI - The backend for AI-coded apps with vector search and real-time streaming",
   "main": "dist/index.js",
   "bin": {
     "shov": "./bin/shov.js"
