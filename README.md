@@ -1,6 +1,6 @@
 # Shov CLI
 
-Instant backends for AI-coded apps with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
+Instant AI-Native Backends with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
 
 <p align="center">
   <a href="https://shov.com" target="_blank"><strong>Website / Docs</strong></a> •
@@ -143,6 +143,29 @@ shov where users
 - `shov secrets set <name> <value>` - Set a secret for edge functions
 - `shov secrets set-many <secrets-json>` - Set multiple secrets at once (bulk operation)
 - `shov secrets delete <name>` - Delete a secret from edge functions
+
+### Backup & Restore (Time-Travel)
+- `shov restore` - Restore your backend from a backup
+  - `--from <timestamp>` - When to restore from (e.g., "2 hours ago", "2024-10-01 14:30")
+  - `--to <environment>` - Target environment (default: current)
+  - `--to-new-env <name>` - Create new environment from backup
+  - `--code` - Restore only code files
+  - `--data` - Restore only data
+  - `--files` - Restore only uploaded files
+  - `--secrets` - Restore only secrets
+  - `--all` - Restore everything (default if no flags)
+  - `-y, --yes` - Skip confirmation prompts
+- `shov clone <source> <target>` - Clone entire environment (code, data, files, secrets)
+  - `-y, --yes` - Skip confirmation prompts
+- `shov history` - View backup history
+  - `--env <environment>` - Filter by environment (default: production)
+  - `--type <type>` - Filter by type (code, data, files, secrets)
+  - `--limit <number>` - Number of backups to show (default: 50)
+  - `--json` - Output JSON for scripting
+- `shov rollback` - Quick rollback to 1 hour ago (shortcut for restore)
+  - `--from <timestamp>` - Override default (1 hour ago)
+  - `--to <environment>` - Target environment
+  - `-y, --yes` - Skip confirmation prompts
 
 ### Options
 
@@ -476,6 +499,65 @@ await shov.broadcast(
 
 // Close stream when done
 // close()
+```
+
+### Backup & Restore Examples
+
+```bash
+# View backup history
+shov history
+
+# Restore from 2 hours ago (natural language!)
+shov restore --from "2 hours ago"
+
+# Restore to specific timestamp
+shov restore --from "2024-10-01 14:30:00"
+
+# Quick emergency rollback
+shov rollback --yes
+
+# Restore only code to staging
+shov restore --from "2 hours ago" --code --to staging
+
+# Create debug environment from yesterday
+shov restore --from "1 day ago" --to-new-env "debug-yesterday"
+
+# Clone production to staging
+shov clone production staging
+
+# Clone with immediate confirmation
+shov clone production staging --yes
+
+# View specific environment history
+shov history --env production --type code --limit 100
+
+# Interactive restore (no flags needed)
+shov restore
+# CLI will prompt you for:
+# - When to restore from
+# - What to restore (code/data/files/secrets)
+# - Where to restore to
+```
+
+**Natural Language Timestamps:**
+- `"2 hours ago"`, `"30 minutes ago"`
+- `"3 days ago"`, `"1 week ago"`
+- `"last tuesday"`, `"yesterday"`
+- Or use exact: `"2024-10-01 14:30:00"`
+
+**Selective Restore:**
+```bash
+# Just code + secrets
+shov restore --from "2 hours ago" --code
+
+# Just data
+shov restore --from "1 day ago" --data
+
+# Just files
+shov restore --from "3 days ago" --files
+
+# Everything
+shov restore --from "2 hours ago" --all
 ```
 
 ## Next.js Integration

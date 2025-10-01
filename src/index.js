@@ -152,7 +152,7 @@ class ShovCLI {
 `))
 
     // Main Headlines
-    console.log(chalk.bold.white('\n                           Instant backends for AI-coded apps\n'))
+    console.log(chalk.bold.white('\n                           Instant AI-Native Backends\n'))
     console.log(chalk.gray('              The instant database for AI native apps.\n'))
     console.log(chalk.gray('           Zero provisioning, vector search, and millisecond responses.\n'))
 
@@ -2377,6 +2377,454 @@ class ShovCLI {
     }
     
     console.log(chalk.gray('\n💡 Set secret values with: shov secrets set <name> <value>'))
+  }
+
+  // ============================================================================
+  // BACKUP & RESTORE
+  // ============================================================================
+
+  /**
+   * Restore from backup
+   * @param {object} options - Restore options
+   */
+  async restore(options = {}) {
+    const { default: ora } = await import('ora');
+    const { default: prompts } = await import('prompts');
+    
+    const { projectName, apiKey } = await this.getProjectConfig(options);
+    
+    try {
+      // Parse timestamp
+      let timestamp;
+      if (options.from) {
+        timestamp = this.parseTimestamp(options.from);
+      } else {
+        // Prompt for timestamp
+        const response = await prompts({
+          type: 'text',
+          name: 'timestamp',
+          message: 'When do you want to restore from? (e.g., "2 hours ago", "2024-10-01 14:30")',
+        });
+        if (!response.timestamp) {
+          console.log(chalk.yellow('Restore cancelled.'));
+          return;
+        }
+        timestamp = this.parseTimestamp(response.timestamp);
+      }
+
+      // Determine what to restore
+      let resources = {
+        code: options.code || options.all,
+        data: options.data || options.all,
+        files: options.files || options.all,
+        secrets: options.secrets || options.all
+      };
+
+      // If nothing specified, restore everything
+      if (!resources.code && !resources.data && !resources.files && !resources.secrets) {
+        const response = await prompts([
+          {
+            type: 'multiselect',
+            name: 'selected',
+            message: 'What would you like to restore?',
+            choices: [
+              { title: 'Code & Secrets (deployment unit)', value: 'code', selected: true },
+              { title: 'Data', value: 'data', selected: true },
+              { title: 'Files', value: 'files', selected: true }
+            ]
+          }
+        ]);
+
+        if (!response.selected || response.selected.length === 0) {
+          console.log(chalk.yellow('No resources selected. Restore cancelled.'));
+          return;
+        }
+
+        resources = {
+          code: response.selected.includes('code'),
+          data: response.selected.includes('data'),
+          files: response.selected.includes('files'),
+          secrets: response.selected.includes('code') // Secrets always with code
+        };
+      }
+
+      // Determine target environment
+      let targetEnvironment = options.to || options.environment || 'production';
+      let createNewEnvironment = false;
+
+      if (options.toNewEnv) {
+        createNewEnvironment = true;
+        targetEnvironment = options.toNewEnv;
+      } else if (!options.to && !options.environment) {
+        const response = await prompts({
+          type: 'select',
+          name: 'target',
+          message: 'Where do you want to restore to?',
+          choices: [
+            { title: 'Current environment (production)', value: 'current' },
+            { title: 'Another environment', value: 'other' },
+            { title: 'New environment', value: 'new' }
+          ]
+        });
+
+        if (response.target === 'other') {
+          const envResponse = await prompts({
+            type: 'text',
+            name: 'env',
+            message: 'Environment name:',
+          });
+          targetEnvironment = envResponse.env || 'production';
+        } else if (response.target === 'new') {
+          const envResponse = await prompts({
+            type: 'text',
+            name: 'env',
+            message: 'New environment name (e.g., "debug-oct-1"):',
+          });
+          if (!envResponse.env) {
+            console.log(chalk.yellow('Restore cancelled.'));
+            return;
+          }
+          targetEnvironment = envResponse.env;
+          createNewEnvironment = true;
+        }
+      }
+
+      // Confirm restore
+      if (!options.yes) {
+        console.log(chalk.yellow('\n⚠️  This will restore:'));
+        if (resources.code) console.log(chalk.gray('  • Code & Secrets'));
+        if (resources.data) console.log(chalk.gray('  • Data'));
+        if (resources.files) console.log(chalk.gray('  • Files'));
+        console.log(chalk.yellow(`\nFrom: ${chalk.white(new Date(timestamp).toLocaleString())}`));
+        console.log(chalk.yellow(`To: ${chalk.white(targetEnvironment)}${createNewEnvironment ? ' (new)' : ''}\n`));
+
+        const confirm = await prompts({
+          type: 'confirm',
+          name: 'proceed',
+          message: 'Proceed with restore?',
+          initial: false
+        });
+
+        if (!confirm.proceed) {
+          console.log(chalk.yellow('Restore cancelled.'));
+          return;
+        }
+      }
+
+      const spinner = ora('Restoring backup...').start();
+
+      // Call restore API
+      const response = await fetch(`${this.apiUrl}/api/backups/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          projectName,
+          timestamp: new Date(timestamp).toISOString(),
+          sourceEnvironment: options.from || 'production',
+          targetEnvironment,
+          createNewEnvironment,
+          resources: {
+            code: resources.code,
+            data: resources.data,
+            files: resources.files,
+            secrets: resources.secrets
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        spinner.fail(`Restore failed: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      spinner.succeed('Restore completed successfully!');
+      
+      // Show results
+      console.log(chalk.green('\n✅ Restore Results:'));
+      if (data.details?.code) {
+        console.log(chalk.gray(`  • Code: ${data.details.code.filesRestored || 0} files restored`));
+      }
+      if (data.details?.data) {
+        console.log(chalk.gray(`  • Data: ${data.details.data.itemsRestored || 0} items restored`));
+      }
+      if (data.details?.files) {
+        console.log(chalk.gray(`  • Files: ${data.details.files.filesRestored || 0} files restored`));
+      }
+      if (data.details?.secrets) {
+        console.log(chalk.gray(`  • Secrets: ${data.details.secrets.secretsRestored || 0} secrets restored`));
+      }
+
+      // Show warnings
+      if (data.details?.warnings && data.details.warnings.length > 0) {
+        console.log(chalk.yellow('\n⚠️  Warnings:'));
+        data.details.warnings.forEach(w => {
+          console.log(chalk.yellow(`  • ${w.message}`));
+        });
+      }
+
+      console.log(chalk.gray(`\nRestore ID: ${data.restoreId}`));
+      
+      if (createNewEnvironment) {
+        console.log(chalk.blue(`\n🔗 New environment URL: https://${targetEnvironment}_${projectName}.shov.dev`));
+      }
+
+    } catch (error) {
+      console.error(chalk.red('Restore failed:'), error.message);
+    }
+  }
+
+  /**
+   * Clone an environment
+   * @param {string} sourceEnv - Source environment
+   * @param {string} targetEnv - Target environment
+   * @param {object} options - Clone options
+   */
+  async clone(sourceEnv, targetEnv, options = {}) {
+    const { default: ora } = await import('ora');
+    const { default: prompts } = await import('prompts');
+    
+    const { projectName, apiKey } = await this.getProjectConfig(options);
+
+    try {
+      if (!sourceEnv || !targetEnv) {
+        console.error(chalk.red('Usage: shov clone <source-env> <target-env>'));
+        console.log(chalk.gray('Example: shov clone production staging'));
+        return;
+      }
+
+      // Confirm clone
+      if (!options.yes) {
+        console.log(chalk.yellow(`\n⚠️  This will copy the current state of ${chalk.white(sourceEnv)} to ${chalk.white(targetEnv)}`));
+        console.log(chalk.yellow('Including: Code, Data, Files, and Secrets\n'));
+
+        const confirm = await prompts({
+          type: 'confirm',
+          name: 'proceed',
+          message: `Clone ${sourceEnv} → ${targetEnv}?`,
+          initial: false
+        });
+
+        if (!confirm.proceed) {
+          console.log(chalk.yellow('Clone cancelled.'));
+          return;
+        }
+      }
+
+      const spinner = ora(`Cloning ${sourceEnv} → ${targetEnv}...`).start();
+
+      // Call restore API with "now" timestamp
+      const response = await fetch(`${this.apiUrl}/api/backups/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          projectName,
+          timestamp: new Date().toISOString(), // Current time
+          sourceEnvironment: sourceEnv,
+          targetEnvironment: targetEnv,
+          createNewEnvironment: targetEnv !== sourceEnv && !options.overwrite,
+          resources: {
+            code: true,
+            data: true,
+            files: true,
+            secrets: true
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        spinner.fail(`Clone failed: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      spinner.succeed(`✅ ${sourceEnv} cloned to ${targetEnv} successfully!`);
+      
+      // Show results
+      console.log(chalk.gray('\nCloned:'));
+      if (data.details?.code) {
+        console.log(chalk.gray(`  • Code: ${data.details.code.filesRestored || 0} files`));
+      }
+      if (data.details?.data) {
+        console.log(chalk.gray(`  • Data: ${data.details.data.itemsRestored || 0} items`));
+      }
+      if (data.details?.files) {
+        console.log(chalk.gray(`  • Files: ${data.details.files.filesRestored || 0} files`));
+      }
+      if (data.details?.secrets) {
+        console.log(chalk.gray(`  • Secrets: ${data.details.secrets.secretsRestored || 0} secrets`));
+      }
+
+      console.log(chalk.blue(`\n🔗 ${targetEnv} URL: https://${targetEnv}_${projectName}.shov.dev`));
+
+    } catch (error) {
+      console.error(chalk.red('Clone failed:'), error.message);
+    }
+  }
+
+  /**
+   * View backup history
+   * @param {object} options - History options
+   */
+  async history(options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options);
+
+    try {
+      const environment = options.env || options.environment || 'production';
+      const typeFilter = options.type || '';
+      const limit = options.limit || 50;
+
+      // Build query string
+      const params = new URLSearchParams({
+        env: environment,
+        limit: limit.toString()
+      });
+      if (typeFilter) {
+        params.append('type', typeFilter);
+      }
+
+      const response = await fetch(
+        `${this.apiUrl}/api/backups/timeline?project=${projectName}&${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get backup history');
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(data, null, 2));
+        return;
+      }
+
+      // Display backup timeline
+      console.log(chalk.bold(`\n📦 Backup History - ${environment}`));
+      console.log(chalk.gray('─'.repeat(80)));
+
+      if (!data.backups || data.backups.length === 0) {
+        console.log(chalk.yellow('\nNo backups found'));
+        console.log(chalk.gray('Backups are created automatically when you make changes'));
+        return;
+      }
+
+      console.log(chalk.gray(`\nShowing ${data.backups.length} most recent backups:\n`));
+
+      data.backups.forEach((backup, index) => {
+        const date = new Date(backup.created_at);
+        const timestamp = date.toLocaleString();
+        const relativeTime = this.getRelativeTime(date);
+
+        // Type icon
+        const typeIcons = {
+          code: '💻',
+          data: '🗄️ ',
+          files: '📁',
+          secrets: '🔐'
+        };
+        const icon = typeIcons[backup.type] || '📦';
+
+        // Color based on type
+        const typeColors = {
+          code: chalk.blue,
+          data: chalk.green,
+          files: chalk.purple,
+          secrets: chalk.yellow
+        };
+        const colorFn = typeColors[backup.type] || chalk.white;
+
+        console.log(`${icon} ${colorFn(backup.type.toUpperCase().padEnd(8))} ${chalk.gray(timestamp)} ${chalk.dim(`(${relativeTime})`)}`);
+
+        // Show details
+        if (backup.file_path) {
+          console.log(chalk.gray(`   └─ ${backup.file_path}${backup.change_type ? ` (${backup.change_type})` : ''}`));
+        } else if (backup.collections_count) {
+          console.log(chalk.gray(`   └─ ${backup.collections_count} collections, ${backup.items_count} items`));
+        } else if (backup.secrets_count) {
+          console.log(chalk.gray(`   └─ ${backup.secrets_count} secrets`));
+        }
+
+        console.log('');
+      });
+
+      console.log(chalk.gray('─'.repeat(80)));
+      console.log(chalk.blue('\n💡 Restore from any point:'));
+      console.log(chalk.gray(`   shov restore --from "${data.backups[0].created_at}"`));
+      console.log(chalk.gray(`   shov restore --from "2 hours ago"`));
+
+    } catch (error) {
+      console.error(chalk.red('Failed to get backup history:'), error.message);
+    }
+  }
+
+  /**
+   * Parse natural language timestamp
+   */
+  parseTimestamp(input) {
+    // ISO timestamp
+    if (input.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return new Date(input).getTime();
+    }
+
+    // Relative time
+    const relativeMatch = input.match(/^(\d+)\s*(second|minute|hour|day|week|month)s?\s*ago$/i);
+    if (relativeMatch) {
+      const amount = parseInt(relativeMatch[1]);
+      const unit = relativeMatch[2].toLowerCase();
+      const now = Date.now();
+      
+      const multipliers = {
+        second: 1000,
+        minute: 60 * 1000,
+        hour: 60 * 60 * 1000,
+        day: 24 * 60 * 60 * 1000,
+        week: 7 * 24 * 60 * 60 * 1000,
+        month: 30 * 24 * 60 * 60 * 1000
+      };
+
+      return now - (amount * multipliers[unit]);
+    }
+
+    // Try parsing as date
+    const parsed = new Date(input);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.getTime();
+    }
+
+    throw new Error(`Invalid timestamp: ${input}`);
+  }
+
+  /**
+   * Get relative time string
+   */
+  getRelativeTime(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay < 30) return `${diffDay}d ago`;
+    
+    return date.toLocaleDateString();
   }
 
   // ============================================================================

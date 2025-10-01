@@ -6,8 +6,8 @@ const { ShovCLI } = require('../dist/index.js')
 
 program
   .name('shov')
-  .description('Shov CLI - Instant edge key/value store')
-  .version('2.4.4')
+  .description('Shov CLI - Instant edge key/value store with time-travel backups')
+  .version('3.1.0')
 
 program
   .command('new [projectName]')
@@ -650,6 +650,94 @@ secrets
     try {
       const cli = new ShovCLI(options);
       await cli.secretsDelete(name, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+// Backup & Restore Commands
+program
+  .command('restore')
+  .description('Restore your project from a backup')
+  .option('--from <timestamp>', 'Timestamp to restore from (e.g., "2 hours ago", "2024-10-01 14:30")')
+  .option('--to <environment>', 'Target environment to restore to')
+  .option('--to-new-env <name>', 'Create a new environment with this name')
+  .option('--code', 'Restore code files')
+  .option('--data', 'Restore data')
+  .option('--files', 'Restore uploaded files')
+  .option('--secrets', 'Restore secrets')
+  .option('--all', 'Restore everything (code, data, files, secrets)')
+  .option('--env <environment>', 'Source environment (default: production)')
+  .option('--environment <environment>', 'Alias for --env')
+  .option('-y, --yes', 'Skip confirmation prompts')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.restore(options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('clone <sourceEnv> <targetEnv>')
+  .description('Clone an entire environment (code, data, files, secrets)')
+  .option('-y, --yes', 'Skip confirmation prompts')
+  .option('--overwrite', 'Overwrite target environment if it exists')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .action(async (sourceEnv, targetEnv, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.clone(sourceEnv, targetEnv, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('history')
+  .description('View backup history for your project')
+  .option('--env <environment>', 'Filter by environment (default: production)')
+  .option('--environment <environment>', 'Alias for --env')
+  .option('--type <type>', 'Filter by backup type (code, data, files, secrets)')
+  .option('--limit <number>', 'Number of backups to show (default: 50)')
+  .option('--json', 'Output JSON for scripting')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.history(options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('rollback')
+  .description('Quick rollback to the most recent backup (1 hour ago)')
+  .option('--from <timestamp>', 'Rollback to specific time instead of 1 hour ago')
+  .option('--to <environment>', 'Target environment (default: current)')
+  .option('-y, --yes', 'Skip confirmation prompts')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      // Quick rollback defaults to 1 hour ago, all resources
+      const rollbackOptions = {
+        ...options,
+        from: options.from || '1 hour ago',
+        all: true
+      };
+      await cli.restore(rollbackOptions);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
