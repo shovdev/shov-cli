@@ -143,7 +143,7 @@ class ShovCLI {
     console.log('\n')
     
     // Main Headlines with better spacing
-    console.log(chalk.bold.white('  Instant AI-Native Backends\n'))
+    console.log(chalk.bold.white('  Ship Production Backends in Seconds, Not Weeks\n'))
     console.log(chalk.gray('  The instant database for AI native apps.'))
     console.log(chalk.gray('  Zero provisioning, vector search, and millisecond responses.\n'))
   }

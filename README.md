@@ -1,6 +1,6 @@
 # Shov CLI
 
-Instant AI-Native Backends with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
+Ship Production Backends in Seconds, Not Weeks with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
 
 <p align="center">
   <a href="https://shov.com" target="_blank"><strong>Website / Docs</strong></a> •

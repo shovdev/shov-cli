@@ -1,7 +1,7 @@
 {
   "name": "shov",
   "version": "3.2.0",
-  "description": "Shov CLI - Instant AI-Native Backends with vector search and real-time streaming",
+  "description": "Shov CLI - Ship Production Backends in Seconds, Not Weeks with vector search and real-time streaming",
   "main": "dist/index.js",
   "bin": {
     "shov": "./bin/shov.js"
