@@ -136,28 +136,16 @@ class ShovCLI {
     // Clear screen for dramatic effect
     console.clear()
     
-    // ASCII Art Logo
-    console.log(chalk.cyan(`
-     @@@@@@@@                                                        
-   @@@@@@@@@@                @@@@@                                   
- @@@@@@@@@@@                 @@@@@                                   
-@@@@@@@@@@@         @@@@@@@@ @@@@@@@@@@@     @@@@@@@@  @@@@@   @@@@@ 
-@@@@@@@@@@         @@@@@@@@@ @@@@@@@@@@@@  @@@@@@@@@@@@ @@@@  @@@@@  
-@@@@@@@@@@         @@@@@     @@@@@   @@@@@@@@@@    @@@@@@@@@@ @@@@@  
-@@@@@@@@@@         @@@@@@@@@ @@@@@   @@@@@@@@@      @@@@@@@@@@@@@@   
-@@@@@@@@@@@            @@@@@@@@@@@   @@@@@@@@@@    @@@@@@ @@@@@@@    
- @@@@@@@@@@@       @@@@@@@@@@@@@@@   @@@@@@@@@@@@@@@@@@@   @@@@@     
-   @@@@@@@@@@      @@@@@@@@@ @@@@@   @@@@@  @@@@@@@@@@      @@@      
-     @@@@@@@@                                                        
-`))
-
-    // Main Headlines
-    console.log(chalk.bold.white('\n                           Instant AI-Native Backends\n'))
-    console.log(chalk.gray('              The instant database for AI native apps.\n'))
-    console.log(chalk.gray('           Zero provisioning, vector search, and millisecond responses.\n'))
-
-    // One-sentence pitch
-    console.log(chalk.white('🚀 ') + chalk.bold('Shov is the fastest way to get a backend with data, files, and search.\n'))
+    // Sleek, minimal header
+    console.log('\n')
+    console.log(chalk.bold.white('     SHOV'))
+    console.log(chalk.gray('     ────'))
+    console.log('\n')
+    
+    // Main Headlines with better spacing
+    console.log(chalk.bold.white('  Instant AI-Native Backends\n'))
+    console.log(chalk.gray('  The instant database for AI native apps.'))
+    console.log(chalk.gray('  Zero provisioning, vector search, and millisecond responses.\n'))
   }
 
   async runInteractiveDemo() {
@@ -242,44 +230,89 @@ class ShovCLI {
     }
   }
 
+  async showProjectDetails(projectName, apiKey, projectUrl) {
+    const { default: ora } = await import('ora')
+    
+    // Helper for delays and animation
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+    
+    console.log('\n')
+    
+    // Animated reveal of each detail
+    const spinner = ora({ text: 'Setting up your project...', spinner: 'dots12' }).start()
+    await delay(600)
+    spinner.stop()
+    
+    // Hero the URL - most important info
+    console.log(chalk.bold.white('  Your Project URL:\n'))
+    console.log(chalk.cyan.bold(`  ${projectUrl}\n`))
+    
+    await delay(400)
+    
+    // Project name
+    const nameSpinner = ora({ text: '', spinner: 'dots12' }).start()
+    await delay(300)
+    nameSpinner.stop()
+    console.log(chalk.gray('  Project:    ') + chalk.white(projectName))
+    
+    await delay(300)
+    
+    // API Key
+    const keySpinner = ora({ text: '', spinner: 'dots12' }).start()
+    await delay(300)
+    keySpinner.stop()
+    console.log(chalk.gray('  API Key:    ') + chalk.yellow(apiKey))
+    
+    await delay(300)
+    
+    // Config saved
+    const configSpinner = ora({ text: '', spinner: 'dots12' }).start()
+    await delay(300)
+    configSpinner.succeed(chalk.gray('  Config saved to .shov and .env'))
+    
+    console.log('\n')
+  }
+
   async showFirstTimeExamples() {
-    console.log(chalk.green('\n📚 Next steps:'))
+    console.log(chalk.green('📚 Next steps:\n'))
     
     // Add delay helper
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
     
     // Key-value storage (moved up)
-    await delay(800)
-    console.log(chalk.gray('\n   Key-value storage:'))
+    await delay(500)
+    console.log(chalk.gray('   Key-value storage:'))
     console.log(chalk.gray('   ') + chalk.white('shov set') + chalk.gray(' config ') + chalk.cyan('\'{"theme": "dark", "notifications": true}\''))
     console.log(chalk.gray('   ') + chalk.white('shov get') + chalk.gray(' config'))
     
     // Store relational data
-    await delay(1000)
+    await delay(700)
     console.log(chalk.gray('\n   Store relational data:'))
     console.log(chalk.gray('   ') + chalk.white('shov add') + chalk.gray(' users ') + chalk.cyan('\'{"name": "Alice", "email": "alice@example.com"}\''))
     
     // Retrieve data  
-    await delay(1000)
+    await delay(700)
     console.log(chalk.gray('\n   Retrieve data:'))
     console.log(chalk.gray('   ') + chalk.white('shov where') + chalk.gray(' users'))
     console.log(chalk.gray('   ') + chalk.white('shov where') + chalk.gray(' users ') + chalk.cyan('\'{"name": "Alice"}\''))
     
     // Vector search with magic
-    await delay(1000)
+    await delay(700)
     console.log(chalk.gray('\n   ✨ Vector search (all data auto-embedded):'))
     console.log(chalk.gray('   ') + chalk.white('shov search') + chalk.gray(' ') + chalk.cyan('"find users named Alice"'))
     console.log(chalk.gray('   ') + chalk.dim('Natural language queries across collections or entire project'))
     
     // Upload files
-    await delay(1000)
+    await delay(700)
     console.log(chalk.gray('\n   Upload files:'))
     console.log(chalk.gray('   ') + chalk.white('shov upload') + chalk.gray(' ./document.pdf'))
     
-    await delay(800)
+    await delay(500)
     console.log(chalk.gray('\n   📚 Full documentation: ') + chalk.cyan('https://shov.com'))
     console.log(chalk.gray('   💬 Join our community: ') + chalk.cyan('discord.gg/GB3rDcFrGz') + chalk.gray(' • ') + chalk.cyan('reddit.com/r/shov'))
     console.log(chalk.gray('   🐦 Follow us: ') + chalk.cyan('x.com/shovdev'))
+    
+    console.log('\n' + chalk.green.bold('🎯 Your project is ready to use!\n'))
   }
 
   async createProject(projectName, options) {
@@ -332,17 +365,22 @@ class ShovCLI {
       const data = await response.json()
 
       if (data.success) {
+        spinner.succeed(`Project created successfully!`)
+        
+        // Save config first
+        await this.config.saveLocalConfig({
+          project: data.project.name,
+          apiKey: data.project.apiKey,
+        })
+        this.addToEnv(data.project.apiKey, data.project.name)
+        
         if (isFirstTimeUser) {
-          spinner.succeed(`🎉 Project '${data.project.name}' created successfully!`)
-          console.log(`\n🔑 API Key: ${chalk.yellow(data.project.apiKey)}`)
-          console.log('')
-          
-          await this.config.saveLocalConfig({
-            project: data.project.name,
-            apiKey: data.project.apiKey,
-          })
-          console.log(`💾 Project details saved to local .shov file.`)
-          this.addToEnv(data.project.apiKey, data.project.name)
+          // Show animated project details with URL hero'd
+          await this.showProjectDetails(
+            data.project.name, 
+            data.project.apiKey, 
+            data.project.url
+          )
           
           // Deploy blocks if specified
           if (options.blocks) {
@@ -351,19 +389,13 @@ class ShovCLI {
           
           // Show next steps with examples
           await this.showFirstTimeExamples()
-          
-          console.log('\n🎯 Your project is ready to use!\n')
         } else {
-          // Minimal output for returning users
-          spinner.succeed(`🎉 Project '${data.project.name}' created successfully!`)
-          console.log(`\n🔑 API Key: ${data.project.apiKey}`)
-          console.log(`💾 Project details saved to local .shov file.`)
-          
-          await this.config.saveLocalConfig({
-            project: data.project.name,
-            apiKey: data.project.apiKey,
-          })
-          this.addToEnv(data.project.apiKey, data.project.name)
+          // Minimal output for returning users but still show URL
+          console.log('\n')
+          console.log(chalk.gray('  Project URL: ') + chalk.cyan(data.project.url))
+          console.log(chalk.gray('  API Key:     ') + chalk.yellow(data.project.apiKey))
+          console.log(chalk.gray('  Config saved to .shov and .env'))
+          console.log('\n')
           
           // Deploy blocks if specified
           if (options.blocks) {
@@ -452,47 +484,52 @@ class ShovCLI {
         const verifyData = await verifyResponse.json()
 
         if (verifyData.success) {
+          spinner.succeed(`Project verified and created successfully!`)
+          
+          // Save config first
+          await this.config.saveLocalConfig({
+            project: verifyData.project.name,
+            apiKey: verifyData.project.apiKey,
+          })
+          this.addToEnv(verifyData.project.apiKey, verifyData.project.name)
+          
           if (isFirstTimeUser) {
-            spinner.succeed(`🎉 Project '${verifyData.project.name}' verified and created successfully!`)
-            console.log(`\n🔑 API Key: ${chalk.yellow(verifyData.project.apiKey)}`)
-            console.log('')
-            
-            await this.config.saveLocalConfig({
-              project: verifyData.project.name,
-              apiKey: verifyData.project.apiKey,
-            })
-            console.log(`💾 Project details saved to local .shov file.`)
-            this.addToEnv(verifyData.project.apiKey, verifyData.project.name)
+            // Show animated project details with URL hero'd
+            await this.showProjectDetails(
+              verifyData.project.name, 
+              verifyData.project.apiKey, 
+              verifyData.project.url
+            )
             
             // Show next steps with examples
             await this.showFirstTimeExamples()
-            
-            console.log('\n🎯 Your project is ready to use!\n')
           } else {
-            // Minimal output for returning users
-            spinner.succeed(`🎉 Project '${verifyData.project.name}' created successfully!`)
-            console.log(`\n🔑 API Key: ${verifyData.project.apiKey}`)
-            console.log(`💾 Project details saved to local .shov file.`)
-            
-            await this.config.saveLocalConfig({
-              project: verifyData.project.name,
-              apiKey: verifyData.project.apiKey,
-            })
-            this.addToEnv(verifyData.project.apiKey, verifyData.project.name)
+            // Minimal output for returning users but still show URL
+            console.log('\n')
+            console.log(chalk.gray('  Project URL: ') + chalk.cyan(verifyData.project.url))
+            console.log(chalk.gray('  API Key:     ') + chalk.yellow(verifyData.project.apiKey))
+            console.log(chalk.gray('  Config saved to .shov and .env'))
+            console.log('\n')
           }
         } else {
           spinner.fail(`❌ Verification failed: ${verifyData.error || 'Unknown error'}`)
         }
       } else if (data.success) {
         // Direct creation without verification (shouldn't happen with email)
-        spinner.succeed(`Project '${data.project.name}' created!`)
-        console.log(`API Key: ${data.project.apiKey}`)
+        spinner.succeed(`Project created successfully!`)
+        
         await this.config.saveLocalConfig({
           project: data.project.name,
           apiKey: data.project.apiKey,
         })
-        console.log('Project details saved to local .shov file.')
         this.addToEnv(data.project.apiKey, data.project.name)
+        
+        // Show URL even for edge case
+        console.log('\n')
+        console.log(chalk.gray('  Project URL: ') + chalk.cyan(data.project.url))
+        console.log(chalk.gray('  API Key:     ') + chalk.yellow(data.project.apiKey))
+        console.log(chalk.gray('  Config saved to .shov and .env'))
+        console.log('\n')
       } else {
         spinner.fail(`Project creation failed: ${data.error || 'Unknown error'}`)
       }
