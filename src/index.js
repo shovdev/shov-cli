@@ -133,9 +133,6 @@ class ShovCLI {
   }
 
   async showWelcomeExperience() {
-    // Clear screen for dramatic effect
-    console.clear()
-    
     // Sleek, minimal header
     console.log('\n')
     console.log(chalk.bold.white('     SHOV'))
@@ -244,7 +241,7 @@ class ShovCLI {
     spinner.stop()
     
     // Hero the URL - most important info
-    console.log(chalk.bold.white('  Your Project URL:\n'))
+    console.log(chalk.bold.white('  Your Shov backend is live:\n'))
     console.log(chalk.cyan.bold(`  ${projectUrl}\n`))
     
     await delay(400)
@@ -273,7 +270,7 @@ class ShovCLI {
     console.log('\n')
   }
 
-  async showFirstTimeExamples() {
+  async showFirstTimeExamples(projectUrl) {
     console.log(chalk.green('📚 Next steps:\n'))
     
     // Add delay helper
@@ -313,6 +310,12 @@ class ShovCLI {
     console.log(chalk.gray('   🐦 Follow us: ') + chalk.cyan('x.com/shovdev'))
     
     console.log('\n' + chalk.green.bold('🎯 Your project is ready to use!\n'))
+    
+    // Show backend URL again as final call-to-action
+    if (projectUrl) {
+      console.log(chalk.gray('   👉 Open your live backend: ') + chalk.cyan.bold(projectUrl))
+      console.log('\n')
+    }
   }
 
   async createProject(projectName, options) {
@@ -387,12 +390,12 @@ class ShovCLI {
             await this.deployBlocksAfterProjectCreation(options.blocks, data.project.name, data.project.apiKey)
           }
           
-          // Show next steps with examples
-          await this.showFirstTimeExamples()
+          // Show next steps with examples (pass URL for final call-to-action)
+          await this.showFirstTimeExamples(data.project.url)
         } else {
           // Minimal output for returning users but still show URL
           console.log('\n')
-          console.log(chalk.gray('  Project URL: ') + chalk.cyan(data.project.url))
+          console.log(chalk.gray('  Shov backend URL: ') + chalk.cyan(data.project.url))
           console.log(chalk.gray('  API Key:     ') + chalk.yellow(data.project.apiKey))
           console.log(chalk.gray('  Config saved to .shov and .env'))
           console.log('\n')
@@ -506,7 +509,7 @@ class ShovCLI {
           } else {
             // Minimal output for returning users but still show URL
             console.log('\n')
-            console.log(chalk.gray('  Project URL: ') + chalk.cyan(verifyData.project.url))
+            console.log(chalk.gray('  Shov backend URL: ') + chalk.cyan(verifyData.project.url))
             console.log(chalk.gray('  API Key:     ') + chalk.yellow(verifyData.project.apiKey))
             console.log(chalk.gray('  Config saved to .shov and .env'))
             console.log('\n')
@@ -526,7 +529,7 @@ class ShovCLI {
         
         // Show URL even for edge case
         console.log('\n')
-        console.log(chalk.gray('  Project URL: ') + chalk.cyan(data.project.url))
+        console.log(chalk.gray('  Shov backend URL: ') + chalk.cyan(data.project.url))
         console.log(chalk.gray('  API Key:     ') + chalk.yellow(data.project.apiKey))
         console.log(chalk.gray('  Config saved to .shov and .env'))
         console.log('\n')
