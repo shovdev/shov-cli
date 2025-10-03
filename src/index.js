@@ -3158,6 +3158,163 @@ class ShovCLI {
       throw new Error(`Failed to get block versions: ${error.message}`)
     }
   }
+
+  // Events Commands
+  async eventsTrack(event, propertiesString, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      let properties = {}
+      if (propertiesString) {
+        try {
+          properties = JSON.parse(propertiesString)
+        } catch (e) {
+          throw new Error('Properties must be valid JSON')
+        }
+      }
+      
+      const payload = {
+        event,
+        properties,
+        environment: options.env || 'production'
+      }
+      
+      const result = await this.apiCall(`/events/${projectName}`, payload, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Event tracked successfully`))
+      console.log(`${chalk.gray('Event:')} ${chalk.cyan(event)}`)
+      console.log(`${chalk.gray('Event ID:')} ${result.eventId}`)
+      if (Object.keys(properties).length > 0) {
+        console.log(`${chalk.gray('Properties:')} ${Object.keys(properties).length} properties`)
+      }
+    } catch (error) {
+      throw new Error(`Failed to track event: ${error.message}`)
+    }
+  }
+
+  async eventsQuery(options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      let filters = {}
+      if (options.filters) {
+        try {
+          filters = JSON.parse(options.filters)
+        } catch (e) {
+          throw new Error('Filters must be valid JSON')
+        }
+      }
+      
+      if (options.event) {
+        filters.event = options.event
+      }
+      
+      const payload = {
+        timeRange: options.timeRange || '24h',
+        limit: parseInt(options.limit) || 100,
+        filters,
+        environment: options.env || null
+      }
+      
+      if (options.event) {
+        payload.eventName = options.event
+      }
+      
+      const result = await this.apiCall(`/events/${projectName}/query`, payload, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.bold(`\n📊 Events Query Results`))
+      console.log(chalk.gray('─'.repeat(60)))
+      
+      if (!result.events || result.events.length === 0) {
+        console.log(chalk.yellow('No events found'))
+        return
+      }
+      
+      console.log(`${chalk.gray('Total events:')} ${result.events.length}`)
+      if (result.sources) {
+        console.log(`${chalk.gray('Sources:')} KV: ${result.sources.kv}, Analytics: ${result.sources.analytics}`)
+      }
+      console.log()
+      
+      result.events.forEach(event => {
+        const date = new Date(event.timestamp).toLocaleString()
+        console.log(`${chalk.cyan(event.eventName)} - ${chalk.gray(date)}`)
+        console.log(`  ${chalk.gray('ID:')} ${event.eventId}`)
+        if (event.properties && Object.keys(event.properties).length > 0) {
+          console.log(`  ${chalk.gray('Properties:')} ${JSON.stringify(event.properties, null, 2).split('\n').join('\n  ')}`)
+        }
+        console.log()
+      })
+    } catch (error) {
+      throw new Error(`Failed to query events: ${error.message}`)
+    }
+  }
+
+  async eventsTail(options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const url = new URL(`/events/${projectName}/tail`, this.apiUrl)
+      if (options.event) {
+        url.searchParams.set('event', options.event)
+      }
+      if (options.limit) {
+        url.searchParams.set('limit', options.limit)
+      }
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Events tail failed')
+      }
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.bold(`\n🔴 Real-time Events (Past 60 seconds)`))
+      console.log(chalk.gray('─'.repeat(60)))
+      
+      if (!result.events || result.events.length === 0) {
+        console.log(chalk.yellow('No recent events'))
+        return
+      }
+      
+      console.log(`${chalk.gray('Total events:')} ${result.count}`)
+      console.log()
+      
+      result.events.forEach(event => {
+        const date = new Date(event.timestamp).toLocaleString()
+        console.log(`${chalk.cyan(event.eventName)} - ${chalk.gray(date)}`)
+        console.log(`  ${chalk.gray('ID:')} ${event.eventId}`)
+        if (event.properties && Object.keys(event.properties).length > 0) {
+          console.log(`  ${chalk.gray('Properties:')} ${JSON.stringify(event.properties, null, 2).split('\n').join('\n  ')}`)
+        }
+        console.log()
+      })
+    } catch (error) {
+      throw new Error(`Failed to tail events: ${error.message}`)
+    }
+  }
 }
 
 module.exports = { ShovCLI }
