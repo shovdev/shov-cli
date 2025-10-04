@@ -3,11 +3,12 @@
 const { program } = require('commander')
 const chalk = require('chalk')
 const { ShovCLI } = require('../dist/index.js')
+const { version } = require('../package.json')
 
 program
   .name('shov')
   .description('Shov CLI - Instant edge key/value store with time-travel backups')
-  .version('3.2.2')
+  .version(version)
 
 program
   .command('new [projectName]')
@@ -26,7 +27,8 @@ program
 
 program
   .command('claim <email> [projectName]')
-  .description('Claim a project with your email address. Project name is optional if run from a project directory.')
+  .description('Claim a project with your email address. Project name and API key are auto-detected from .shov file if available.')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .action(async (email, projectName, options) => {
     try {
       const cli = new ShovCLI(options);

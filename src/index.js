@@ -30,6 +30,16 @@ class ShovCLI {
       return
     }
 
+    if (response.status === 401 && data.details?.reason === 'AUTHENTICATION_REQUIRED') {
+      // Authentication required
+      spinner.fail(data.error)
+      console.log('')
+      console.log(chalk.yellow('💡 Make sure you&apos;re providing the correct API key for this project.'))
+      console.log(chalk.gray('   If you created this project anonymously, the API key should be in your .shov file.'))
+      console.log(chalk.gray('   You can also specify the API key with: shov claim <email> -k <apiKey>'))
+      return
+    }
+
     if (response.status === 403) {
       if (data.details?.reason === 'FREE_TIER_PROJECT_LIMIT') {
         // Free tier project limit reached
@@ -645,20 +655,43 @@ class ShovCLI {
     const { default: prompts } = await import('prompts');
     
     let finalProjectName = projectName;
+    let apiKey = options.key;
 
-    if (!finalProjectName) {
+    // Try to detect project and API key from .shov file if not provided
+    if (!finalProjectName || !apiKey) {
       try {
         const detected = await this.config.detectProject();
-        if (detected && detected.source === 'local') {
-          finalProjectName = detected.projectName;
-          console.log(chalk.gray(`Project '${finalProjectName}' detected from local .shov file.`));
-        } else {
-          throw new Error('No project name specified and no local project found. Please provide a project name.');
+        if (detected) {
+          if (!finalProjectName && detected.projectName) {
+            finalProjectName = detected.projectName;
+            console.log(chalk.gray(`Project '${finalProjectName}' detected from local .shov file.`));
+          }
+          if (!apiKey && detected.apiKey) {
+            apiKey = detected.apiKey;
+            console.log(chalk.gray(`API key loaded from local .shov file.`));
+          }
         }
       } catch (error) {
-        console.error(chalk.red(error.message));
-        return;
+        // Ignore detection errors, we'll validate below
       }
+    }
+
+    // Validate we have all required information
+    if (!finalProjectName) {
+      console.error(chalk.red('Error: No project name specified and no local project found.'));
+      console.log(chalk.yellow('Usage: shov claim <email> [projectName] [-k <apiKey>]'));
+      return;
+    }
+
+    if (!apiKey) {
+      console.error(chalk.red('Error: No API key found.'));
+      console.log(chalk.yellow('\nPlease provide an API key using:'));
+      console.log(chalk.white('  shov claim <email> -k <apiKey>'));
+      console.log(chalk.gray('\nOr ensure your .shov file contains both "project" and "apiKey" fields.'));
+      if (finalProjectName) {
+        console.log(chalk.gray(`\nDetected project "${finalProjectName}" but missing API key in .shov file.`));
+      }
+      return;
     }
 
     let spinner = ora(`Initiating claim for project '${finalProjectName}'...`).start();
@@ -666,7 +699,10 @@ class ShovCLI {
       // Step 1: Initiate the claim and trigger OTP
       const initiateResponse = await fetch(`${this.apiUrl}/api/claim/initiate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({ projectName: finalProjectName, email }),
       });
 
@@ -695,7 +731,10 @@ class ShovCLI {
       spinner.start('Verifying code and claiming project...');
       const verifyResponse = await fetch(`${this.apiUrl}/api/claim/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({ projectName: finalProjectName, email, pin }),
       });
       
@@ -715,11 +754,11 @@ class ShovCLI {
         console.log(chalk.white(`   Name: ${verifyData.project.name}`));
         console.log(chalk.white(`   Organization: ${verifyData.project.organizationSlug}`));
         console.log(chalk.white(`   Backend URL: ${verifyData.project.url}`));
-        if (verifyData.project.apiKey) {
-          console.log(chalk.white(`   API Key: ${verifyData.project.apiKey}`));
-        }
         console.log('');
-        console.log(chalk.green('✓ You can now manage this project from your dashboard at https://shov.com'));
+        console.log(chalk.green('✓ Your existing API key will continue to work for this project.'));
+        console.log(chalk.gray('   No need to update your code - everything keeps working!'));
+        console.log('');
+        console.log(chalk.blue('💡 Manage your project at https://shov.com'));
       } else {
         console.log(chalk.green('You can now manage this project from your account.'));
       }
