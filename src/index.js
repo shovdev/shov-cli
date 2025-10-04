@@ -29,6 +29,40 @@ class ShovCLI {
       }
       return
     }
+
+    if (response.status === 403) {
+      if (data.details?.reason === 'FREE_TIER_PROJECT_LIMIT') {
+        // Free tier project limit reached
+        spinner.fail(data.error)
+        console.log('')
+        console.log(chalk.yellow('📊 Your current plan:'))
+        console.log(chalk.white(`   Organization: ${data.details.organizationName}`))
+        console.log(chalk.white(`   Projects: ${data.details.currentProjects}/${data.details.maxProjects}`))
+        console.log('')
+        console.log(chalk.cyan('🚀 Upgrade to Pro for unlimited projects:'))
+        console.log(chalk.white(`   ${data.details.upgradeUrl}`))
+        console.log('')
+        console.log(chalk.blue('💡 Pro includes: Unlimited projects, premium support, and more!'))
+        return
+      } else if (data.details?.reason === 'PROJECT_ALREADY_CLAIMED') {
+        // Project already claimed
+        spinner.fail(data.error)
+        console.log('')
+        console.log(chalk.blue('💡 If this is your project, log in at https://shov.com to manage it.'))
+        return
+      }
+      // Generic 403 error
+      spinner.fail(`${operation} failed: ${data.error || 'Permission denied'}`)
+      return
+    }
+
+    if (response.status === 404 && data.details?.reason === 'PROJECT_NOT_FOUND') {
+      // Project not found
+      spinner.fail(data.error)
+      console.log('')
+      console.log(chalk.blue('💡 Tip: Make sure you&apos;re using the exact project name. Project names are case-sensitive.'))
+      return
+    }
     
     if (response.status === 400 && data.error) {
       // Validation errors (like email format, aliases, etc.)
@@ -44,8 +78,13 @@ class ShovCLI {
       return
     }
     
-    // Generic error handling
+    // Generic error handling with upgrade message if available
     spinner.fail(`${operation} failed: ${data.error || response.statusText}`)
+    
+    if (data.upgradeMessage) {
+      console.log('')
+      console.log(chalk.cyan(`💡 ${data.upgradeMessage}`))
+    }
   }
 
   async apiCall(path, body, apiKey, options = {}, method = 'POST') {
@@ -668,7 +707,22 @@ class ShovCLI {
       }
 
       spinner.succeed(verifyData.message);
-      console.log(chalk.green('You can now manage this project from your account.'));
+      
+      // Display project information
+      if (verifyData.project) {
+        console.log('');
+        console.log(chalk.bold.cyan('📦 Project Details:'));
+        console.log(chalk.white(`   Name: ${verifyData.project.name}`));
+        console.log(chalk.white(`   Organization: ${verifyData.project.organizationSlug}`));
+        console.log(chalk.white(`   Backend URL: ${verifyData.project.url}`));
+        if (verifyData.project.apiKey) {
+          console.log(chalk.white(`   API Key: ${verifyData.project.apiKey}`));
+        }
+        console.log('');
+        console.log(chalk.green('✓ You can now manage this project from your dashboard at https://shov.com'));
+      } else {
+        console.log(chalk.green('You can now manage this project from your account.'));
+      }
 
     } catch (error) {
       spinner.fail(`An error occurred during the claim process: ${error.message}`);
