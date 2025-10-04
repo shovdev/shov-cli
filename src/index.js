@@ -2146,12 +2146,12 @@ class ShovCLI {
     }
   }
 
-  // Edge Functions Management
-  async edgeList(options = {}) {
+  // Code Functions Management
+  async codeList(options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/edge-list/${projectName}`, {}, apiKey, options)
+      const result = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2159,12 +2159,12 @@ class ShovCLI {
       }
       
       if (!result.functions || result.functions.length === 0) {
-        console.log(chalk.yellow('No edge functions found.'))
-        console.log(chalk.gray('Run "shov edge create <name> <file>" to deploy your first function.'))
+        console.log(chalk.yellow('No code functions found.'))
+        console.log(chalk.gray('Run "shov code write <name> <file>" to deploy your first function.'))
         return
       }
       
-      console.log(chalk.bold(`Edge Functions (${result.functions.length}):`))
+      console.log(chalk.bold(`Code Functions (${result.functions.length}):`))
       console.log('')
       
       result.functions.forEach(func => {
@@ -2175,11 +2175,11 @@ class ShovCLI {
         console.log('')
       })
     } catch (error) {
-      throw new Error(`Failed to list edge functions: ${error.message}`)
+      throw new Error(`Failed to list code functions: ${error.message}`)
     }
   }
 
-  async edgeCreate(functionName, filePath, options = {}) {
+  async codeWrite(functionName, filePath, options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     if (!fs.existsSync(filePath)) {
@@ -2189,11 +2189,11 @@ class ShovCLI {
     const code = fs.readFileSync(filePath, 'utf8')
     const config = {
       timeout: options.timeout ? parseInt(options.timeout) : 10000,
-      description: options.description || `Edge function: ${functionName}`
+      description: options.description || `Code function: ${functionName}`
     }
     
     try {
-      const result = await this.apiCall(`/edge-create/${projectName}`, {
+      const result = await this.apiCall(`/code-write/${projectName}`, {
         name: functionName,
         code,
         config
@@ -2204,73 +2204,62 @@ class ShovCLI {
         return
       }
       
-      console.log(chalk.green(`✅ Edge function "${functionName}" created successfully!`))
-      console.log(`   URL: ${chalk.blue(result.url || `https://${projectName}.shov.com/api/${functionName}`)}`)
-      console.log(`   Size: ${chalk.gray(result.size || 'Unknown')}`)
-      console.log(`   Deployed: ${chalk.gray(new Date(result.deployedAt || Date.now()).toLocaleString())}`)
-    } catch (error) {
-      throw new Error(`Failed to create edge function: ${error.message}`)
-    }
-  }
-
-  async edgeUpdate(functionName, filePath, options = {}) {
-    const { projectName, apiKey } = await this.getProjectConfig(options)
-    
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`File not found: ${filePath}`)
-    }
-    
-    const code = fs.readFileSync(filePath, 'utf8')
-    const config = {
-      timeout: options.timeout ? parseInt(options.timeout) : 10000,
-      description: options.description || `Edge function: ${functionName}`
-    }
-    
-    try {
-      const result = await this.apiCall(`/edge-update/${projectName}`, {
-        name: functionName,
-        code,
-        config
-      }, apiKey, options)
-      
-      if (options.json) {
-        console.log(JSON.stringify(result, null, 2))
-        return
-      }
-      
-      console.log(chalk.green(`✅ Edge function "${functionName}" updated successfully!`))
+      console.log(chalk.green(`✅ Code function "${functionName}" written successfully!`))
       console.log(`   URL: ${chalk.blue(result.url || `https://${projectName}.shov.com/api/${functionName}`)}`)
       console.log(`   Version: ${chalk.gray(result.version || 'Unknown')}`)
-      console.log(`   Updated: ${chalk.gray(new Date(result.deployedAt || Date.now()).toLocaleString())}`)
+      console.log(`   Deployed: ${chalk.gray(new Date(result.deployedAt || Date.now()).toLocaleString())}`)
     } catch (error) {
-      throw new Error(`Failed to update edge function: ${error.message}`)
+      throw new Error(`Failed to write code function: ${error.message}`)
     }
   }
 
-  async edgeDelete(functionName, options = {}) {
+  async codeRead(functionName, options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/edge-delete/${projectName}`, {
-        name: functionName
-      }, apiKey, options)
+      const result = await this.apiCall(`/code-read/${projectName}/${functionName}`, {}, apiKey, options)
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
         return
       }
       
-      console.log(chalk.green(`✅ Edge function "${functionName}" deleted successfully!`))
+      console.log(chalk.bold(`Code Function: ${chalk.cyan(functionName)}`))
+      console.log('')
+      console.log(chalk.gray(`Version: ${result.version || 'Unknown'}`))
+      console.log(chalk.gray(`Size: ${result.size || 'Unknown'}`))
+      console.log(chalk.gray(`Deployed: ${new Date(result.deployedAt || Date.now()).toLocaleString()}`))
+      console.log('')
+      console.log(chalk.bold('Source Code:'))
+      console.log('')
+      console.log(result.code)
     } catch (error) {
-      throw new Error(`Failed to delete edge function: ${error.message}`)
+      throw new Error(`Failed to read code function: ${error.message}`)
     }
   }
 
-  async edgeRollback(functionName, version, options = {}) {
+  async codeDelete(functionName, options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/edge-rollback/${projectName}`, {
+      const result = await this.apiCall(`/code-delete/${projectName}/${functionName}`, {}, apiKey, options)
+      
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      
+      console.log(chalk.green(`✅ Code function "${functionName}" deleted successfully!`))
+    } catch (error) {
+      throw new Error(`Failed to delete code function: ${error.message}`)
+    }
+  }
+
+  async codeRollback(functionName, version, options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    
+    try {
+      const result = await this.apiCall(`/code-rollback/${projectName}`, {
         name: functionName,
         version: version ? parseInt(version) : undefined
       }, apiKey, options)
@@ -2280,19 +2269,19 @@ class ShovCLI {
         return
       }
       
-      console.log(chalk.green(`✅ Edge function "${functionName}" rolled back successfully!`))
+      console.log(chalk.green(`✅ Code function "${functionName}" rolled back successfully!`))
       console.log(`   Version: ${chalk.gray(result.version || 'Previous')}`)
       console.log(`   Rolled back: ${chalk.gray(new Date().toLocaleString())}`)
     } catch (error) {
-      throw new Error(`Failed to rollback edge function: ${error.message}`)
+      throw new Error(`Failed to rollback code function: ${error.message}`)
     }
   }
 
-  async edgeLogs(functionName, options = {}) {
+  async codeLogs(functionName, options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const endpoint = options.follow ? `/edge-tail/${projectName}` : `/edge-logs/${projectName}`
+      const endpoint = options.follow ? `/code-tail/${projectName}` : `/code-logs/${projectName}`
       const payload = functionName ? { functionName } : {}
       
       if (options.follow) {
@@ -2338,7 +2327,82 @@ class ShovCLI {
         console.log('')
       })
     } catch (error) {
-      throw new Error(`Failed to get edge function logs: ${error.message}`)
+      throw new Error(`Failed to get code function logs: ${error.message}`)
+    }
+  }
+
+  async codePull(options = {}) {
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    const outputDir = options.output || '.'
+    
+    try {
+      console.log(chalk.blue('Fetching code files from project...'))
+      
+      // Get list of all code files
+      const listResult = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      
+      if (!listResult.functions || listResult.functions.length === 0) {
+        console.log(chalk.yellow('No code files found in project.'))
+        return
+      }
+      
+      console.log(chalk.gray(`Found ${listResult.functions.length} code files`))
+      console.log('')
+      
+      // Create output directory if it doesn't exist
+      if (outputDir !== '.') {
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true })
+          console.log(chalk.gray(`Created directory: ${outputDir}`))
+        }
+      }
+      
+      // Download each file
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const func of listResult.functions) {
+        try {
+          // Read the code content
+          const readResult = await this.apiCall(`/code-read/${projectName}/${func.name}`, {}, apiKey, options)
+          
+          // Determine file path
+          const filePath = path.join(outputDir, func.name)
+          const fileDir = path.dirname(filePath)
+          
+          // Create subdirectories if needed
+          if (fileDir !== outputDir && fileDir !== '.') {
+            fs.mkdirSync(fileDir, { recursive: true })
+          }
+          
+          // Write file
+          fs.writeFileSync(filePath, readResult.code, 'utf8')
+          
+          console.log(chalk.green(`✓ ${func.name}`) + chalk.gray(` (${readResult.size || 'Unknown size'})`))
+          successCount++
+        } catch (error) {
+          console.log(chalk.red(`✗ ${func.name}`) + chalk.gray(` - ${error.message}`))
+          errorCount++
+        }
+      }
+      
+      console.log('')
+      if (errorCount === 0) {
+        console.log(chalk.green(`✅ Successfully downloaded ${successCount} code files to ${outputDir === '.' ? 'current directory' : outputDir}`))
+      } else {
+        console.log(chalk.yellow(`⚠️  Downloaded ${successCount} files, ${errorCount} failed`))
+      }
+      
+      if (options.json) {
+        console.log(JSON.stringify({
+          success: errorCount === 0,
+          filesDownloaded: successCount,
+          filesFailed: errorCount,
+          outputDirectory: outputDir
+        }, null, 2))
+      }
+    } catch (error) {
+      throw new Error(`Failed to pull code files: ${error.message}`)
     }
   }
 

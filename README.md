@@ -130,19 +130,20 @@ shov where users
 - `shov subscribe <subscriptions>` - Subscribe to real-time updates via Server-Sent Events
 - `shov broadcast <subscription> <message>` - Broadcast a message to active subscribers
 
-### Edge Functions
-- `shov edge list` - List all deployed edge functions
-- `shov edge create <name> <file>` - Deploy a JavaScript function to the global edge network
-- `shov edge update <name> <file>` - Update an existing edge function with new code
-- `shov edge delete <name>` - Delete an edge function from the global network
-- `shov edge rollback <name> [version]` - Rollback an edge function to a previous version
-- `shov edge logs [name]` - View real-time logs from your edge functions
+### Code Functions
+- `shov code list` - List all deployed code files
+- `shov code write <name> <file>` - Write (create or overwrite) a code file deployed to the global edge network
+- `shov code read <name>` - Read the source code of a deployed code file
+- `shov code pull` - Download all code files from your project to local directory
+- `shov code delete <name>` - Delete a code file from the global network
+- `shov code rollback <name> [version]` - Rollback a code file to a previous version
+- `shov code logs [name]` - View real-time logs from your code functions
 
 ### Secrets Management
 - `shov secrets list` - List all secret names (values never shown for security)
-- `shov secrets set <name> <value>` - Set a secret for edge functions
+- `shov secrets set <name> <value>` - Set a secret for code functions
 - `shov secrets set-many <secrets-json>` - Set multiple secrets at once (bulk operation)
-- `shov secrets delete <name>` - Delete a secret from edge functions
+- `shov secrets delete <name>` - Delete a secret from code functions
 
 ### Backup & Restore (Time-Travel)
 - `shov restore` - Restore your backend from a backup
@@ -363,29 +364,39 @@ shov broadcast '{"key": "config"}' '{"theme": "dark", "updated_at": "2024-01-15T
 - **Filtered Subscriptions**: Only receive updates matching your criteria
 - **Auto-broadcasts**: All data writes (set, add, update, remove) automatically notify subscribers
 
-### Edge Functions
+### Code Functions
 
 ```bash
-# List all deployed edge functions
-shov edge list
+# List all deployed code files
+shov code list
 
-# Deploy a simple edge function
+# Write a code file (creates new or overwrites existing)
 echo 'export default async function(req) { 
-  return new Response(JSON.stringify({ message: "Hello from edge!" })); 
-}' > hello.js
-shov edge create hello-world hello.js
+  return new Response(JSON.stringify({ message: "Hello from the edge!" })); 
+}' > index.js
+shov code write index.js index.js
 
-# Update an edge function
-shov edge update hello-world hello-v2.js
+# Read a code file's source
+shov code read index.js
+
+# Pull all code files to local directory
+shov code pull
+# Downloads: index.js, routes.js, routes/*, services/*, etc.
+
+# Pull to specific directory
+shov code pull --output ./my-code/
+
+# Update by writing again (overwrite)
+shov code write index.js index-v2.js
 
 # View real-time logs
-shov edge logs hello-world
+shov code logs
 
 # Rollback to previous version
-shov edge rollback hello-world
+shov code rollback index.js
 
-# Delete an edge function
-shov edge delete hello-world
+# Delete a code file
+shov code delete index.js
 ```
 
 ### Secrets Management

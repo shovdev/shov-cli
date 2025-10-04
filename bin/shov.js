@@ -484,28 +484,28 @@ program
     }
   })
 
-// Edge Functions Commands
-const edge = program.command('edge').description('Manage edge functions');
+// Code Functions Commands
+const code = program.command('code').description('Manage code functions');
 
-edge
+code
   .command('list')
-  .description('List all deployed edge functions')
+  .description('List all deployed code functions')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--json', 'Output JSON for scripting')
   .action(async (options) => {
     try {
       const cli = new ShovCLI(options);
-      await cli.edgeList(options);
+      await cli.codeList(options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
     }
   });
 
-edge
-  .command('create <functionName> <filePath>')
-  .description('Create/deploy a new edge function')
+code
+  .command('write <functionName> <filePath>')
+  .description('Write (create or overwrite) a code function')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--description <description>', 'Function description')
@@ -514,66 +514,64 @@ edge
   .action(async (functionName, filePath, options) => {
     try {
       const cli = new ShovCLI(options);
-      await cli.edgeCreate(functionName, filePath, options);
+      await cli.codeWrite(functionName, filePath, options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
     }
   });
 
-edge
-  .command('update <functionName> <filePath>')
-  .description('Update an existing edge function')
-  .option('-p, --project <project>', 'Project name (or use .shov config)')
-  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--description <description>', 'Function description')
-  .option('--timeout <ms>', 'Function timeout in milliseconds')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (functionName, filePath, options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.edgeUpdate(functionName, filePath, options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-edge
-  .command('delete <functionName>')
-  .description('Delete an edge function')
+code
+  .command('read <functionName>')
+  .description('Read the source code of a deployed code function')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--json', 'Output JSON for scripting')
   .action(async (functionName, options) => {
     try {
       const cli = new ShovCLI(options);
-      await cli.edgeDelete(functionName, options);
+      await cli.codeRead(functionName, options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
     }
   });
 
-edge
+code
+  .command('delete <functionName>')
+  .description('Delete a code function')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (functionName, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.codeDelete(functionName, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+code
   .command('rollback <functionName> [version]')
-  .description('Rollback an edge function to a previous version')
+  .description('Rollback a code function to a previous version')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--json', 'Output JSON for scripting')
   .action(async (functionName, version, options) => {
     try {
       const cli = new ShovCLI(options);
-      await cli.edgeRollback(functionName, version, options);
+      await cli.codeRollback(functionName, version, options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
     }
   });
 
-edge
+code
   .command('logs [functionName]')
-  .description('View edge function logs')
+  .description('View code function logs')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--follow', 'Follow logs in real-time')
@@ -581,7 +579,24 @@ edge
   .action(async (functionName, options) => {
     try {
       const cli = new ShovCLI(options);
-      await cli.edgeLogs(functionName, options);
+      await cli.codeLogs(functionName, options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+code
+  .command('pull')
+  .description('Download all code files from your project')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('-o, --output <directory>', 'Output directory (default: current directory)')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.codePull(options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
