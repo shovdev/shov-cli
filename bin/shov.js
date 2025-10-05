@@ -797,9 +797,9 @@ blocks
   });
 
 blocks
-  .command('deploy <slug>')
-  .description('Deploy a block to your project')
-  .option('--version <version>', 'Deploy specific version (default: latest)')
+  .command('add <slug>')
+  .description('Add a block to your project')
+  .option('--version <version>', 'Install specific version (default: latest)')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
   .option('--json', 'Output JSON for scripting')
@@ -807,41 +807,6 @@ blocks
     try {
       const cli = new ShovCLI(options);
       await cli.blocksDeploy(slug, options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-blocks
-  .command('create <slug>')
-  .description('Create a new block from local files')
-  .option('--name <name>', 'Block display name')
-  .option('--description <desc>', 'Block description')
-  .option('--category <category>', 'Block category')
-  .option('--org <orgId>', 'Organization ID')
-  .option('--readme <file>', 'README markdown file')
-  .option('--functions <dir>', 'Directory containing function files')
-  .option('--version <version>', 'Initial version (default: 1.0.0)')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (slug, options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.blocksCreate(slug, options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-blocks
-  .command('versions <slug>')
-  .description('List all versions of a block')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (slug, options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.blocksVersions(slug, options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
