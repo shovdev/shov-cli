@@ -1639,7 +1639,7 @@ class ShovCLI {
     if (options.json) {
       try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/api/data/${projectName}/files-list`, {}, apiKey, options);
+        const data = await this.apiCall(`/data/${projectName}/files-list`, {}, apiKey, options);
         if (data.success) {
           console.log(JSON.stringify(data, null, 2));
         } else {
@@ -1657,7 +1657,7 @@ class ShovCLI {
     const spinner = ora('Listing files...').start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/api/data/${projectName}/files-list`, {}, apiKey, options);
+        const data = await this.apiCall(`/data/${projectName}/files-list`, {}, apiKey, options);
         if (data.success) {
             spinner.succeed(`Found ${data.files.length} files:`);
             console.table(data.files);
@@ -1674,7 +1674,7 @@ class ShovCLI {
     const spinner = ora(`Getting file info for ${fileId}...`).start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/api/data/${projectName}/files-get/${fileId}`, {}, apiKey, options);
+        const data = await this.apiCall(`/data/${projectName}/files-get/${fileId}`, {}, apiKey, options);
         if (data.success) {
             spinner.succeed('File found:');
             console.log(data.file);
@@ -1691,7 +1691,7 @@ class ShovCLI {
     const spinner = ora(`Deleting file ${fileId}...`).start();
     try {
         const { projectName, apiKey } = await this.getProjectConfig(options);
-        const data = await this.apiCall(`/api/data/${projectName}/files-delete/${fileId}`, {}, apiKey, options, 'DELETE');
+        const data = await this.apiCall(`/data/${projectName}/files-delete/${fileId}`, {}, apiKey, options, 'DELETE');
         if (data.success) {
             spinner.succeed(data.message);
         } else {
@@ -2250,7 +2250,9 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/code-delete/${projectName}/${functionName}`, {}, apiKey, options)
+      const result = await this.apiCall(`/code-delete/${projectName}/${functionName}`, { 
+        name: functionName 
+      }, apiKey, options)
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2426,6 +2428,34 @@ class ShovCLI {
         return
       }
       
+      // Handle new secretsByEnvironment format
+      if (result.secretsByEnvironment) {
+        const allSecrets = new Set()
+        
+        // Collect all unique secrets across environments
+        Object.entries(result.secretsByEnvironment).forEach(([env, secrets]) => {
+          secrets.forEach(secret => allSecrets.add(secret))
+        })
+        
+        if (allSecrets.size === 0) {
+          console.log(chalk.yellow('No secrets found.'))
+          console.log(chalk.gray('Run "shov secrets set <name> <value>" to create your first secret.'))
+          return
+        }
+        
+        console.log(chalk.bold(`Secrets (${allSecrets.size}):`))
+        console.log('')
+        
+        Array.from(allSecrets).sort().forEach(secret => {
+          console.log(`  ${chalk.cyan(secret)}`)
+        })
+        
+        console.log('')
+        console.log(chalk.gray('Note: Secret values are never displayed for security.'))
+        return
+      }
+      
+      // Fallback to old format for backwards compatibility
       if (!result.secrets || result.secrets.length === 0) {
         console.log(chalk.yellow('No secrets found.'))
         console.log(chalk.gray('Run "shov secrets set <name> <value>" to create your first secret.'))
@@ -3268,7 +3298,7 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const url = new URL(`/events/${projectName}/tail`, this.apiUrl)
+      const url = new URL(`/api/events-tail/${projectName}`, this.apiUrl)
       if (options.event) {
         url.searchParams.set('event', options.event)
       }
