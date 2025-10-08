@@ -678,11 +678,27 @@ class ShovCLI {
     const spinner = ora(`📦 Deploying ${starter.toUpperCase()} starter template...`).start()
     
     try {
-      // Get template directory path
-      const templatesDir = path.join(__dirname, 'templates', 'starters', starter)
+      // Find templates directory - try multiple paths
+      let templatesDir = null
+      const possiblePaths = [
+        path.join(__dirname, 'templates', 'starters', starter),
+        path.join(__dirname, '..', 'templates', 'starters', starter),
+        path.join(__dirname, '..', 'src', 'templates', 'starters', starter),
+        path.join(process.cwd(), 'packages', 'shov-cli', 'src', 'templates', 'starters', starter),
+        path.join(require.resolve('../package.json'), '..', 'src', 'templates', 'starters', starter)
+      ]
       
-      if (!fs.existsSync(templatesDir)) {
-        spinner.warn(`Starter template directory not found: ${starter}`)
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          templatesDir = p
+          break
+        }
+      }
+      
+      if (!templatesDir) {
+        spinner.warn(`Starter template directory not found for: ${starter}`)
+        console.log(chalk.gray(`  Tried paths:`))
+        possiblePaths.forEach(p => console.log(chalk.gray(`    - ${p}`)))
         return
       }
       
@@ -705,7 +721,7 @@ class ShovCLI {
             'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            functionName: targetPath,
+            name: targetPath,
             code: fileContent
           })
         })
