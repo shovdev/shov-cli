@@ -393,11 +393,7 @@ class ShovCLI {
 
     // If email is provided, we need OTP verification
     if (options.email) {
-      // Store starter template for after verification
-      if (options.starter) {
-        this.pendingStarterTemplate = options.starter
-      }
-      return this.createProjectWithEmail(projectName, options.email)
+      return this.createProjectWithEmail(projectName, options.email, options)
     }
 
     // Anonymous project creation (no email)
@@ -417,6 +413,7 @@ class ShovCLI {
         },
         body: JSON.stringify({
           projectName: projectName || null,
+          starter: options.starter || null,
         }),
       })
 
@@ -440,11 +437,6 @@ class ShovCLI {
           apiKey: data.project.apiKey,
         })
         this.addToEnv(data.project.apiKey, data.project.name)
-        
-        // Deploy starter template if requested
-        if (options.starter) {
-          await this.deployStarter(options.starter, data.project.name, data.project.apiKey)
-        }
         
         if (isFirstTimeUser) {
           // Show animated project details with URL hero'd
@@ -473,7 +465,7 @@ class ShovCLI {
     }
   }
 
-  async createProjectWithEmail(projectName, email) {
+  async createProjectWithEmail(projectName, email, options = {}) {
     const { default: ora } = await import('ora')
     const { default: prompts } = await import('prompts')
     
@@ -495,6 +487,7 @@ class ShovCLI {
         body: JSON.stringify({
           projectName: projectName || null,
           email: email,
+          starter: options.starter || null,
         }),
       })
 
@@ -534,6 +527,7 @@ class ShovCLI {
             email: email,
             pin: otpResponse.otp,
             projectName: data.project.name,
+            starter: options.starter || null,
           }),
         })
 
@@ -554,12 +548,6 @@ class ShovCLI {
             apiKey: verifyData.project.apiKey,
           })
           this.addToEnv(verifyData.project.apiKey, verifyData.project.name)
-          
-          // Deploy starter template if requested (pass from parent options)
-          if (this.pendingStarterTemplate) {
-            await this.deployStarter(this.pendingStarterTemplate, verifyData.project.name, verifyData.project.apiKey)
-            this.pendingStarterTemplate = null
-          }
           
           if (isFirstTimeUser) {
             // Show animated project details with URL hero'd
@@ -666,120 +654,6 @@ class ShovCLI {
     }
   }
 
-  // Deploy starter template files
-  async deployStarter(starter, projectName, apiKey) {
-    const { default: ora } = await import('ora')
-    
-    if (!starter || (starter !== 'b2c' && starter !== 'b2b')) {
-      return // Silently skip if no valid starter
-    }
-    
-    console.log('')
-    const spinner = ora(`📦 Deploying ${starter.toUpperCase()} starter template...`).start()
-    
-    try {
-      // Find templates directory - try multiple paths
-      let templatesDir = null
-      const possiblePaths = [
-        path.join(__dirname, 'templates', 'starters', starter),
-        path.join(__dirname, '..', 'templates', 'starters', starter),
-        path.join(__dirname, '..', 'src', 'templates', 'starters', starter),
-        path.join(process.cwd(), 'packages', 'shov-cli', 'src', 'templates', 'starters', starter),
-        path.join(require.resolve('../package.json'), '..', 'src', 'templates', 'starters', starter)
-      ]
-      
-      for (const p of possiblePaths) {
-        if (fs.existsSync(p)) {
-          templatesDir = p
-          break
-        }
-      }
-      
-      if (!templatesDir) {
-        spinner.warn(`Starter template directory not found for: ${starter}`)
-        console.log(chalk.gray(`  Tried paths:`))
-        possiblePaths.forEach(p => console.log(chalk.gray(`    - ${p}`)))
-        return
-      }
-      
-      // Read all template files
-      const files = fs.readdirSync(templatesDir)
-      const deployedFiles = []
-      
-      for (const file of files) {
-        const filePath = path.join(templatesDir, file)
-        const fileContent = fs.readFileSync(filePath, 'utf-8')
-        
-        // Determine the target path (routes-auth.js -> routes/auth.js)
-        let targetPath = file.replace('routes-', 'routes/')
-        
-        // Deploy the file
-        const response = await fetch(`${this.apiUrl}/api/code/write/${projectName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            name: targetPath,
-            code: fileContent
-          })
-        })
-        
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}))
-          throw new Error(data.error || `Failed to deploy ${targetPath}`)
-        }
-        
-        deployedFiles.push(targetPath)
-      }
-      
-      spinner.succeed(`${starter.toUpperCase()} starter deployed successfully!`)
-      console.log('')
-      console.log(chalk.bold.green('  📁 Files created:'))
-      deployedFiles.forEach(file => {
-        console.log(chalk.gray(`     ✓ ${file}`))
-      })
-      console.log('')
-      
-      // Show starter-specific next steps
-      if (starter === 'b2c') {
-        console.log(chalk.bold.cyan('  🚀 B2C Starter Ready!'))
-        console.log(chalk.gray('     Your project now has passwordless authentication:'))
-        console.log(chalk.white('     • POST /auth/send-otp    - Send OTP to email'))
-        console.log(chalk.white('     • POST /auth/verify-otp  - Verify OTP & create session'))
-        console.log(chalk.white('     • GET  /auth/me          - Get current user'))
-        console.log(chalk.white('     • PATCH /auth/me         - Update user profile'))
-        console.log(chalk.white('     • POST /auth/logout      - Logout'))
-        console.log('')
-        console.log(chalk.gray('     Uses platform utilities: shov.session.*, shov.users.*'))
-      } else if (starter === 'b2b') {
-        console.log(chalk.bold.cyan('  🏢 B2B Starter Ready!'))
-        console.log(chalk.gray('     Your project now has auth + team management:'))
-        console.log(chalk.white('     Authentication:'))
-        console.log(chalk.white('     • POST /auth/send-otp    - Send OTP to email'))
-        console.log(chalk.white('     • POST /auth/verify-otp  - Verify OTP & create session'))
-        console.log(chalk.white('     • GET  /auth/me          - Get current user'))
-        console.log(chalk.white('     • POST /auth/logout      - Logout'))
-        console.log('')
-        console.log(chalk.white('     Organizations/Teams:'))
-        console.log(chalk.white('     • POST /teams/create          - Create organization'))
-        console.log(chalk.white('     • GET  /teams                 - List organizations'))
-        console.log(chalk.white('     • GET  /teams/:orgId          - Get organization'))
-        console.log(chalk.white('     • GET  /teams/:orgId/members  - List members'))
-        console.log(chalk.white('     • POST /teams/:orgId/members  - Add/invite member'))
-        console.log('')
-        console.log(chalk.gray('     Uses: shov.session.*, shov.users.*, shov.organizations.*,'))
-        console.log(chalk.gray('           shov.memberships.*, shov.rbac.*, shov.billing.*'))
-      }
-      console.log('')
-      
-    } catch (error) {
-      spinner.fail(`Failed to deploy ${starter.toUpperCase()} starter`)
-      console.error(chalk.red(`   Error: ${error.message}`))
-      console.log('')
-    }
-  }
   
   async claimProject(projectName, email, options) {
     const { default: ora } = await import('ora');
