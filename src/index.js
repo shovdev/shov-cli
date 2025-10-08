@@ -2594,7 +2594,7 @@ class ShovCLI {
         const params = new URLSearchParams()
         params.append('project', projectName)
         
-        const url = `/blocks/deploy/${blockSlug}?${params.toString()}`
+        const url = `/api/blocks/deploy/${blockSlug}?${params.toString()}`
         const result = await this.apiCall(url, {}, apiKey, {})
         
         spinner.succeed(`${blockSlug} deployed successfully`)
@@ -3167,7 +3167,7 @@ class ShovCLI {
       if (options.version) params.append('version', options.version)
       params.append('project', projectName)
       
-      const url = `/blocks/install/${slug}?${params.toString()}`
+      const url = `/api/blocks/deploy/${slug}?${params.toString()}`
       const result = await this.apiCall(url, {}, apiKey, options)
       
       if (options.json) {
