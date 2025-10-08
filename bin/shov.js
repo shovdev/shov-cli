@@ -14,7 +14,7 @@ program
   .command('new [projectName]')
   .description('Create a new Shov project')
   .option('-e, --email <email>', 'Your email address (optional)')
-  .option('--blocks <blocks>', 'Deploy blocks during project creation (comma-separated)')
+  .option('--starter <type>', 'Deploy starter template: b2c (consumer app) or b2b (SaaS app)')
   .action(async (projectName, options) => {
     try {
       const cli = new ShovCLI(options);
@@ -755,58 +755,6 @@ program
         all: true
       };
       await cli.restore(rollbackOptions);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-// Blocks Commands
-const blocks = program.command('blocks').description('Manage reusable edge function blocks');
-
-blocks
-  .command('list')
-  .description('List available blocks')
-  .option('--category <category>', 'Filter by category')
-  .option('--author <author>', 'Filter by author organization')
-  .option('--search <query>', 'Search blocks')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.blocksList(options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-blocks
-  .command('show <slug>')
-  .description('Show details of a specific block')
-  .option('--version <version>', 'Show specific version')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (slug, options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.blocksShow(slug, options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-blocks
-  .command('add <slug>')
-  .description('Add a block to your project')
-  .option('--version <version>', 'Install specific version (default: latest)')
-  .option('-p, --project <project>', 'Project name (or use .shov config)')
-  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (slug, options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.blocksDeploy(slug, options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
