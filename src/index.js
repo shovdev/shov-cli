@@ -442,11 +442,6 @@ class ShovCLI {
             data.project.url
           )
           
-          // Deploy blocks if specified
-          if (options.blocks) {
-            await this.deployBlocksAfterProjectCreation(options.blocks, data.project.name, data.project.apiKey)
-          }
-          
           // Show next steps with examples (pass URL for final call-to-action)
           await this.showFirstTimeExamples(data.project.url)
         } else {
@@ -456,11 +451,6 @@ class ShovCLI {
           console.log(chalk.gray('  API Key:     ') + chalk.yellow(data.project.apiKey))
           console.log(chalk.gray('  Config saved to .shov and .env'))
           console.log('\n')
-          
-          // Deploy blocks if specified
-          if (options.blocks) {
-            await this.deployBlocksAfterProjectCreation(options.blocks, data.project.name, data.project.apiKey)
-          }
         }
       } else {
         spinner.fail(`❌ Project creation failed: ${data.error || 'Unknown error'}`)
@@ -2578,42 +2568,6 @@ class ShovCLI {
     }
   }
 
-  // Helper method to deploy blocks after project creation
-  async deployBlocksAfterProjectCreation(blocksString, projectName, apiKey) {
-    const { default: ora } = await import('ora')
-    
-    const blocks = blocksString.split(',').map(b => b.trim()).filter(Boolean)
-    if (blocks.length === 0) return
-    
-    console.log(chalk.bold(`\n📦 Deploying ${blocks.length} block${blocks.length > 1 ? 's' : ''}...`))
-    
-    for (const blockSlug of blocks) {
-      const spinner = ora(`Deploying ${blockSlug}...`).start()
-      
-      try {
-        const params = new URLSearchParams()
-        params.append('project', projectName)
-        
-        const url = `/api/blocks/deploy/${blockSlug}?${params.toString()}`
-        const result = await this.apiCall(url, {}, apiKey, {})
-        
-        spinner.succeed(`${blockSlug} deployed successfully`)
-        
-        if (result.functionsDeployed && result.functionsDeployed.length > 0) {
-          console.log(`  ${chalk.gray('Functions:')} ${result.functionsDeployed.join(', ')}`)
-        }
-        
-        if (result.secretsCreated && result.secretsCreated.length > 0) {
-          console.log(`  ${chalk.gray('Secrets created:')} ${result.secretsCreated.join(', ')}`)
-        }
-      } catch (error) {
-        spinner.fail(`Failed to deploy ${blockSlug}: ${error.message}`)
-      }
-    }
-    
-    console.log(chalk.gray('\n💡 Set secret values with: shov secrets set <name> <value>'))
-  }
-
   // ============================================================================
   // BACKUP & RESTORE
   // ============================================================================
@@ -3063,135 +3017,8 @@ class ShovCLI {
   }
 
   // ============================================================================
-  // BLOCKS MANAGEMENT (v1: list, show, add)
+  // EVENTS MANAGEMENT
   // ============================================================================
-
-  async blocksList(options = {}) {
-    try {
-      const params = new URLSearchParams()
-      if (options.category) params.append('category', options.category)
-      if (options.search) params.append('search', options.search)
-      
-      const url = `/blocks/list${params.toString() ? '?' + params.toString() : ''}`
-      const result = await this.apiCall(url, null, null, options, 'GET')
-      
-      if (options.json) {
-        console.log(JSON.stringify(result, null, 2))
-        return
-      }
-      
-      if (!result.blocks || result.blocks.length === 0) {
-        console.log(chalk.yellow('📦 No blocks found'))
-        return
-      }
-      
-      console.log(chalk.bold(`\n📦 Official Shov Blocks (${result.blocks.length})`))
-      console.log(chalk.gray('─'.repeat(60)))
-      
-      result.blocks.forEach(block => {
-        console.log(`\n${chalk.cyan(block.slug)} ${chalk.blue('[OFFICIAL]')}`)
-        console.log(`  ${block.description || 'No description'}`)
-        console.log(`  ${chalk.gray(`v${block.latest_version} • ${block.category}`)}`)
-        
-        if (block.tags && block.tags.length > 0) {
-          console.log(`  ${chalk.gray('Tags:')} ${block.tags.join(', ')}`)
-        }
-      })
-      
-      console.log(chalk.gray('\n─'.repeat(60)))
-      console.log(chalk.gray(`To view details: ${chalk.white('shov blocks show <slug>')}`))
-      console.log(chalk.gray(`To install: ${chalk.white('shov blocks add <slug>')}\n`))
-    } catch (error) {
-      throw new Error(`Failed to list blocks: ${error.message}`)
-    }
-  }
-
-  async blocksShow(slug, options = {}) {
-    try {
-      const params = new URLSearchParams()
-      if (options.version) params.append('version', options.version)
-      
-      const url = `/blocks/get/${slug}${params.toString() ? '?' + params.toString() : ''}`
-      const result = await this.apiCall(url, null, null, options, 'GET')
-      
-      if (options.json) {
-        console.log(JSON.stringify(result, null, 2))
-        return
-      }
-      
-      const block = result.block
-      
-      console.log(chalk.bold(`\n📦 ${block.name}`))
-      console.log(`${chalk.cyan(block.slug)} ${chalk.blue('[OFFICIAL]')}`)
-      console.log(`${chalk.gray('Category:')} ${block.category}`)
-      console.log(`${chalk.gray('Version:')} v${block.version.version}`)
-      console.log()
-      
-      if (block.description) {
-        console.log(chalk.bold('Description:'))
-        console.log(block.description)
-        console.log()
-      }
-      
-      if (block.version.readme) {
-        console.log(chalk.bold('README:'))
-        console.log(block.version.readme)
-        console.log()
-      }
-      
-      if (block.secrets && block.secrets.length > 0) {
-        console.log(chalk.bold(`Required Secrets (${block.secrets.length}):`))
-        block.secrets.forEach(secret => {
-          const required = secret.required ? chalk.red('*') : chalk.gray('(optional)')
-          console.log(`  ${chalk.yellow(secret.name)} ${required}`)
-          if (secret.description) {
-            console.log(`    ${secret.description}`)
-          }
-        })
-        console.log()
-      }
-      
-      console.log(chalk.gray('─'.repeat(60)))
-      console.log(`${chalk.blue('Install:')} shov blocks add ${block.slug}`)
-      console.log(`${chalk.blue('Install at creation:')} shov new my-app --blocks ${block.slug}`)
-    } catch (error) {
-      throw new Error(`Failed to show block: ${error.message}`)
-    }
-  }
-
-  async blocksDeploy(slug, options = {}) {
-    const { projectName, apiKey } = await this.getProjectConfig(options)
-    
-    try {
-      const params = new URLSearchParams()
-      if (options.version) params.append('version', options.version)
-      params.append('project', projectName)
-      
-      const url = `/api/blocks/deploy/${slug}?${params.toString()}`
-      const result = await this.apiCall(url, {}, apiKey, options)
-      
-      if (options.json) {
-        console.log(JSON.stringify(result, null, 2))
-        return
-      }
-      
-      console.log(chalk.green(`\n✅ Block "${slug}" installed successfully!`))
-      
-      if (result.filesCreated) {
-        console.log(chalk.bold(`\nFiles created: ${result.filesCreated}`))
-      }
-      
-      if (result.secretsCreated && result.secretsCreated.length > 0) {
-        console.log(chalk.bold('\n⚠️  Required secrets (please set values):'))
-        result.secretsCreated.forEach(secret => {
-          console.log(`  ${chalk.yellow(secret)}`)
-        })
-        console.log(chalk.gray('\n💡 Set values with: shov secrets set <name> <value>'))
-      }
-    } catch (error) {
-      throw new Error(`Failed to install block: ${error.message}`)
-    }
-  }
 
   // Events Commands
   async eventsTrack(event, propertiesString, options = {}) {
