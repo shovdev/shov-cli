@@ -201,8 +201,8 @@ class ShovCLI {
     
     // Main Headlines with better spacing
     console.log(chalk.bold.white('  Ship Production Backends in Seconds, Not Weeks\n'))
-    console.log(chalk.gray('  The instant database for AI native apps.'))
-    console.log(chalk.gray('  Zero provisioning, vector search, and millisecond responses.\n'))
+    console.log(chalk.gray('  Deploy edge functions with native database, auth, files, and streaming.'))
+    console.log(chalk.gray('  Zero configuration, vector search, and sub-10ms responses globally.\n'))
   }
 
   async runInteractiveDemo() {
@@ -336,44 +336,46 @@ class ShovCLI {
     // Add delay helper
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
     
-    // Key-value storage (moved up)
+    // Deploy your first API endpoint (HERO'd - most important)
     await delay(500)
-    console.log(chalk.gray('   Key-value storage:'))
-    console.log(chalk.gray('   ') + chalk.white('shov set') + chalk.gray(' config ') + chalk.cyan('\'{"theme": "dark", "notifications": true}\''))
-    console.log(chalk.gray('   ') + chalk.white('shov get') + chalk.gray(' config'))
+    console.log(chalk.bold.white('   🚀 Deploy your first API endpoint:\n'))
+    console.log(chalk.gray('   ') + chalk.white('shov code write') + chalk.gray(' hello ') + chalk.cyan('<(echo \'export default async function(request, shov) { return Response.json({ message: "Hello World", data: await shov.where("users") }); }\')'))
+    console.log(chalk.gray('   ') + chalk.dim('Your code has native access to data, auth, files, and more'))
+    console.log(chalk.gray('   ') + chalk.dim(`Live at: ${projectUrl}/api/hello\n`))
     
-    // Store relational data
+    // Store data
     await delay(700)
-    console.log(chalk.gray('\n   Store relational data:'))
+    console.log(chalk.gray('   💾 Store data in collections:'))
     console.log(chalk.gray('   ') + chalk.white('shov add') + chalk.gray(' users ') + chalk.cyan('\'{"name": "Alice", "email": "alice@example.com"}\''))
-    
-    // Retrieve data  
-    await delay(700)
-    console.log(chalk.gray('\n   Retrieve data:'))
     console.log(chalk.gray('   ') + chalk.white('shov where') + chalk.gray(' users'))
-    console.log(chalk.gray('   ') + chalk.white('shov where') + chalk.gray(' users ') + chalk.cyan('\'{"name": "Alice"}\''))
     
     // Vector search with magic
     await delay(700)
     console.log(chalk.gray('\n   ✨ Vector search (all data auto-embedded):'))
     console.log(chalk.gray('   ') + chalk.white('shov search') + chalk.gray(' ') + chalk.cyan('"find users named Alice"'))
-    console.log(chalk.gray('   ') + chalk.dim('Natural language queries across collections or entire project'))
+    console.log(chalk.gray('   ') + chalk.dim('Natural language queries across all your data'))
+    
+    // Key-value storage
+    await delay(700)
+    console.log(chalk.gray('\n   ⚡ Key-value cache:'))
+    console.log(chalk.gray('   ') + chalk.white('shov set') + chalk.gray(' config ') + chalk.cyan('\'{"theme": "dark"}\''))
+    console.log(chalk.gray('   ') + chalk.white('shov get') + chalk.gray(' config'))
     
     // Upload files
     await delay(700)
-    console.log(chalk.gray('\n   Upload files:'))
-    console.log(chalk.gray('   ') + chalk.white('shov upload') + chalk.gray(' ./document.pdf'))
+    console.log(chalk.gray('\n   📁 Upload files:'))
+    console.log(chalk.gray('   ') + chalk.white('shov upload') + chalk.gray(' ./logo.png'))
     
     await delay(500)
-    console.log(chalk.gray('\n   📚 Full documentation: ') + chalk.cyan('https://shov.com'))
+    console.log(chalk.gray('\n   📚 Full documentation: ') + chalk.cyan('https://shov.com/docs'))
     console.log(chalk.gray('   💬 Join our community: ') + chalk.cyan('discord.gg/GB3rDcFrGz') + chalk.gray(' • ') + chalk.cyan('reddit.com/r/shov'))
     console.log(chalk.gray('   🐦 Follow us: ') + chalk.cyan('x.com/shovdev'))
     
-    console.log('\n' + chalk.green.bold('🎯 Your project is ready to use!\n'))
+    console.log('\n' + chalk.green.bold('🎯 Your backend is live and ready!\n'))
     
     // Show backend URL again as final call-to-action
     if (projectUrl) {
-      console.log(chalk.gray('   👉 Open your live backend: ') + chalk.cyan.bold(projectUrl))
+      console.log(chalk.gray('   👉 View your live backend: ') + chalk.cyan.bold(projectUrl))
       console.log('\n')
     }
   }
