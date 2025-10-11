@@ -212,7 +212,7 @@ class ShovCLI {
       // Create anonymous demo project
       let spinner = ora('Creating demo project...').start()
       
-      const response = await fetch(`${this.apiUrl}/api/new`, {
+      const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +238,7 @@ class ShovCLI {
       // Add demo data
       spinner = ora('Adding demo data to collection "hello"...').start()
       
-      const addResponse = await fetch(`${this.apiUrl}/api/add/${data.project.name}`, {
+      const addResponse = await fetch(`${this.apiUrl}/api/data/${data.project.name}/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +257,7 @@ class ShovCLI {
         // Retrieve the data
         spinner = ora('Retrieving data...').start()
         
-        const getResponse = await fetch(`${this.apiUrl}/api/where/${data.project.name}`, {
+        const getResponse = await fetch(`${this.apiUrl}/api/data/${data.project.name}/where`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -414,7 +414,7 @@ class ShovCLI {
     const config = await this.config.getConfig()
 
     try {
-      const response = await fetch(`${this.apiUrl}/api/new`, {
+      const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -512,7 +512,7 @@ class ShovCLI {
 
     try {
       // Step 1: Initiate project creation with email
-      const response = await fetch(`${this.apiUrl}/api/new`, {
+      const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -991,7 +991,7 @@ class ShovCLI {
       if (options.noVector) {
         body.excludeFromVector = true;
       }
-      const response = await this.apiCall(`/set/${project.projectName}`, body, project.apiKey, options);
+      const response = await this.apiCall(`/data/${project.projectName}/set`, body, project.apiKey, options);
 
       if (response.success) {
         spinner.succeed(`Successfully set "${key}".`);
@@ -1009,7 +1009,7 @@ class ShovCLI {
 
       const body = { name: key };
 
-      const data = await this.apiCall(`/get/${projectName}`, body, apiKey, options);
+      const data = await this.apiCall(`/data/${projectName}/get`, body, apiKey, options);
 
       if (data.success) {
         if (options.json) {
@@ -1067,7 +1067,7 @@ class ShovCLI {
       if (options.noVector) {
         body.excludeFromVector = true;
       }
-      const data = await this.apiCall(`/add/${projectName}`, body, apiKey, options);
+      const data = await this.apiCall(`/data/${projectName}/add`, body, apiKey, options);
 
       if (data.success) {
         if (options.json) {
@@ -1104,7 +1104,7 @@ class ShovCLI {
         throw new Error('Input must be a valid JSON array.');
       }
 
-      const response = await fetch(`${this.apiUrl}/api/add-many/${projectConfig.projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectConfig.projectName}/add-many`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1154,7 +1154,7 @@ class ShovCLI {
     }
 
     try {
-      const response = await fetch(`${this.apiUrl}/api/where/${projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectName}/where`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1204,7 +1204,7 @@ class ShovCLI {
     }
 
     try {
-      const response = await fetch(`${this.apiUrl}/api/count/${projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectName}/count`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1238,9 +1238,9 @@ class ShovCLI {
     const spinner = ora(`Removing item "${itemId}" from collection "${collection}"...`).start();
     try {
       const { projectName, apiKey } = await this.getProjectConfig(options);
-      const body = { collection: collection };
+      const body = { collection: collection, id: itemId };
       
-      const data = await this.apiCall(`/remove/${projectName}/${itemId}`, body, apiKey, options);
+      const data = await this.apiCall(`/data/${projectName}/remove`, body, apiKey, options);
       
       if (data.success) {
         spinner.succeed(`Successfully removed item "${itemId}" from collection "${collection}".`);
@@ -1257,7 +1257,7 @@ class ShovCLI {
     const spinner = ora(`Clearing all items from collection "${collectionName}"...`).start();
     try {
       const projectConfig = await this.getProjectConfig(options);
-      const response = await fetch(`${this.apiUrl}/api/clear/${projectConfig.projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectConfig.projectName}/clear`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1307,7 +1307,7 @@ class ShovCLI {
 
       spinner.text = `Executing ${operations.length} operations atomically...`;
 
-      const response = await fetch(`${this.apiUrl}/api/batch/${projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectName}/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1426,12 +1426,13 @@ class ShovCLI {
     const spinner = ora('Forgetting item...').start();
     try {
       const projectConfig = await this.getProjectConfig(options);
-      const response = await fetch(`${this.apiUrl}/api/forget/${projectConfig.projectName}/${idOrName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectConfig.projectName}/forget`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${projectConfig.apiKey}`
-        }
+        },
+        body: JSON.stringify({ name: idOrName })
       });
       const data = await response.json();
       if (response.ok) {
@@ -1464,7 +1465,7 @@ class ShovCLI {
       }
 
       // Use POST for update, consistent with other data operations
-      const data = await this.apiCall(`/update/${projectName}/${idOrName}`, body, apiKey, options);
+      const data = await this.apiCall(`/data/${projectName}/update`, { ...body, id: idOrName }, apiKey, options);
 
       if (data.success) {
         spinner.succeed(`Item "${idOrName}" in collection "${collection}" updated successfully.`);
@@ -1483,7 +1484,7 @@ class ShovCLI {
       const projectConfig = await this.getProjectConfig(options);
       const digits = options.digits ? parseInt(options.digits, 10) : 4;
       
-      const response = await fetch(`${this.apiUrl}/api/send-otp/${projectConfig.projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/auth/${projectConfig.projectName}/otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1509,7 +1510,7 @@ class ShovCLI {
     try {
       const projectConfig = await this.getProjectConfig(options);
 
-      const response = await fetch(`${this.apiUrl}/api/verify-otp/${projectConfig.projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/auth/${projectConfig.projectName}/otp/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1536,7 +1537,7 @@ class ShovCLI {
     try {
       const projectConfig = await this.getProjectConfig(options);
       
-      const response = await fetch(`${this.apiUrl}/api/contents/${projectConfig.projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectConfig.projectName}/contents`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1600,7 +1601,7 @@ class ShovCLI {
         const { execa } = await import('execa');
         const curlArgs = [
             '-X', 'POST',
-            `${this.apiUrl}/api/upload/${projectName}`,
+            `${this.apiUrl}/api/files/${projectName}`,
             '-H', `Authorization: Bearer ${apiKey}`,
             '-H', `Content-Type: ${mimeType}`,
             '-H', `x-shov-filename: ${path.basename(absolutePath)}`,
@@ -1630,7 +1631,7 @@ class ShovCLI {
     try {
       const { projectName, apiKey } = await this.getProjectConfig(options);
       
-      const data = await this.apiCall(`/forget-file/${projectName}/${filename}`, {}, apiKey, options, 'DELETE');
+      const data = await this.apiCall(`/files/${projectName}`, { filename }, apiKey, options, 'DELETE');
       
       if (data.success) {
         spinner.succeed(`Successfully deleted ${data.count} file(s) named "${filename}".`);
@@ -1667,7 +1668,7 @@ class ShovCLI {
             mimeType = mimeTypes[ext] || 'application/octet-stream';
         }
 
-        const response = await fetch(`${this.apiUrl}/api/upload-url/${projectName}`, {
+        const response = await fetch(`${this.apiUrl}/api/files/${projectName}/upload-url`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -1815,7 +1816,7 @@ class ShovCLI {
         api_key: apiKey
       };
 
-      const response = await fetch(`${this.apiUrl}/api/token/${projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/streaming/${projectName}/tokens`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1880,7 +1881,7 @@ class ShovCLI {
         parsedMessage = message;
       }
 
-      const response = await fetch(`${this.apiUrl}/api/broadcast/${projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/streaming/${projectName}/broadcast`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -1938,7 +1939,7 @@ class ShovCLI {
       console.log(chalk.blue(`Connecting to real-time stream for ${parsedSubscriptions.length} subscription${parsedSubscriptions.length === 1 ? '' : 's'}...`));
       
       // Create a streaming token first
-      const tokenResponse = await fetch(`${this.apiUrl}/api/token/${projectName}`, {
+      const tokenResponse = await fetch(`${this.apiUrl}/api/streaming/${projectName}/tokens`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1967,7 +1968,7 @@ class ShovCLI {
 
       // Connect to SSE stream using token only (subscriptions are stored in the token)
       const { EventSource } = await import('eventsource');
-      const eventSource = new EventSource(`${this.apiUrl}/api/subscribe/${projectName}?token=${tokenData.token}`);
+      const eventSource = new EventSource(`${this.apiUrl}/api/streaming/${projectName}/subscribe?token=${tokenData.token}`);
 
       eventSource.onopen = () => {
         console.log(chalk.green('🔗 Stream connection established'));
@@ -2068,7 +2069,7 @@ class ShovCLI {
         }
       }
 
-      const response = await fetch(`${this.apiUrl}/api/search/${projectName}`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectName}/search`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -2222,7 +2223,7 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      const result = await this.apiCall(`/code/${projectName}`, {}, apiKey, options, 'GET')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2264,11 +2265,11 @@ class ShovCLI {
     }
     
     try {
-      const result = await this.apiCall(`/code-write/${projectName}`, {
+      const result = await this.apiCall(`/code/${projectName}`, {
         name: functionName,
         code,
         config
-      }, apiKey, options)
+      }, apiKey, options, 'POST')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2288,7 +2289,7 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/code-read/${projectName}/${functionName}`, {}, apiKey, options)
+      const result = await this.apiCall(`/code/${projectName}/${functionName}`, {}, apiKey, options, 'GET')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2313,9 +2314,9 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/code-delete/${projectName}/${functionName}`, { 
+      const result = await this.apiCall(`/code/${projectName}/${functionName}`, { 
         name: functionName 
-      }, apiKey, options)
+      }, apiKey, options, 'DELETE')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2332,10 +2333,10 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/code-rollback/${projectName}`, {
+      const result = await this.apiCall(`/code/${projectName}/rollback`, {
         name: functionName,
         version: version ? parseInt(version) : undefined
-      }, apiKey, options)
+      }, apiKey, options, 'POST')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2354,7 +2355,7 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const endpoint = options.follow ? `/code-tail/${projectName}` : `/code-logs/${projectName}`
+      const endpoint = options.follow ? `/code/${projectName}/logs/tail` : `/code/${projectName}/logs`
       const payload = functionName ? { functionName } : {}
       
       if (options.follow) {
@@ -2500,7 +2501,7 @@ class ShovCLI {
       console.log(chalk.blue('Fetching code files from project...'))
       
       // Get list of all code files
-      const listResult = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      const listResult = await this.apiCall(`/code/${projectName}`, {}, apiKey, options, 'GET')
       
       if (!listResult.functions || listResult.functions.length === 0) {
         console.log(chalk.yellow('No code files found in project.'))
@@ -2525,7 +2526,7 @@ class ShovCLI {
       for (const func of listResult.functions) {
         try {
           // Read the code content
-          const readResult = await this.apiCall(`/code-read/${projectName}/${func.name}`, {}, apiKey, options)
+          const readResult = await this.apiCall(`/code/${projectName}/${func.name}`, {}, apiKey, options, 'GET')
           
           // Determine file path
           const filePath = path.join(outputDir, func.name)
@@ -2596,7 +2597,7 @@ class ShovCLI {
       
       // Get remote files for comparison
       const spinner = ora('Fetching remote files...').start()
-      const remoteResult = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      const remoteResult = await this.apiCall(`/code/${projectName}`, {}, apiKey, options, 'GET')
       spinner.stop()
       
       const remoteFiles = remoteResult.functions || []
@@ -2689,22 +2690,22 @@ class ShovCLI {
       
       for (const file of toCreate.concat(toUpdate)) {
         const code = fs.readFileSync(file.path, 'utf8')
-        await this.apiCall(`/code-write/${projectName}`, {
+        await this.apiCall(`/code/${projectName}`, {
           name: file.name,
           code,
           config: {
             timeout: 10000,
             description: `Deployed via CLI`
           }
-        }, apiKey, options)
+        }, apiKey, options, 'POST')
         deployed++
       }
       
       if (toDelete) {
         for (const file of toDelete) {
-          await this.apiCall(`/code-delete/${projectName}/${file.name}`, {
+          await this.apiCall(`/code/${projectName}/${file.name}`, {
             name: file.name
-          }, apiKey, options)
+          }, apiKey, options, 'DELETE')
           deployed++
         }
       }
@@ -2828,7 +2829,7 @@ class ShovCLI {
       
       // Fetch files
       const spinner = ora('Fetching code files from server...').start()
-      const listResult = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      const listResult = await this.apiCall(`/code/${projectName}`, {}, apiKey, options, 'GET')
       spinner.stop()
       
       if (!listResult.functions || listResult.functions.length === 0) {
@@ -2845,7 +2846,7 @@ class ShovCLI {
       let successCount = 0
       
       for (const func of listResult.functions) {
-        const readResult = await this.apiCall(`/code-read/${projectName}/${func.name}`, {}, apiKey, options)
+        const readResult = await this.apiCall(`/code/${projectName}/${func.name}`, {}, apiKey, options, 'GET')
         const filePath = path.join(outputDir, func.name)
         const fileDir = path.dirname(filePath)
         
@@ -2879,7 +2880,7 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const result = await this.apiCall(`/secrets-list/${projectName}`, {}, apiKey, options)
+      const result = await this.apiCall(`/secrets/${projectName}`, {}, apiKey, options, 'GET')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2940,11 +2941,11 @@ class ShovCLI {
     const functions = options.functions ? options.functions.split(',').map(f => f.trim()) : []
     
     try {
-      const result = await this.apiCall(`/secrets-set/${projectName}`, {
+      const result = await this.apiCall(`/secrets/${projectName}`, {
         name,
         value,
         functions
-      }, apiKey, options)
+      }, apiKey, options, 'POST')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -2979,10 +2980,10 @@ class ShovCLI {
     const functions = options.functions ? options.functions.split(',').map(f => f.trim()) : []
     
     try {
-      const result = await this.apiCall(`/secrets-set-many/${projectName}`, {
+      const result = await this.apiCall(`/secrets/${projectName}/batch`, {
         secrets,
         functions
-      }, apiKey, options)
+      }, apiKey, options, 'POST')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -3015,10 +3016,9 @@ class ShovCLI {
     const functions = options.functions ? options.functions.split(',').map(f => f.trim()) : []
     
     try {
-      const result = await this.apiCall(`/secrets-delete/${projectName}`, {
-        name,
+      const result = await this.apiCall(`/secrets/${projectName}/${name}`, {
         functions
-      }, apiKey, options)
+      }, apiKey, options, 'DELETE')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -3508,7 +3508,7 @@ class ShovCLI {
         environment: options.env || 'production'
       }
       
-      const result = await this.apiCall(`/events/${projectName}`, payload, apiKey, options)
+      const result = await this.apiCall(`/data/${projectName}/events`, payload, apiKey, options, 'POST')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -3554,7 +3554,7 @@ class ShovCLI {
         payload.eventName = options.event
       }
       
-      const result = await this.apiCall(`/events/${projectName}/query`, payload, apiKey, options)
+      const result = await this.apiCall(`/data/${projectName}/events/query`, payload, apiKey, options, 'POST')
       
       if (options.json) {
         console.log(JSON.stringify(result, null, 2))
@@ -3593,7 +3593,7 @@ class ShovCLI {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
-      const url = new URL(`/api/events-tail/${projectName}`, this.apiUrl)
+      const url = new URL(`/api/data/${projectName}/events/tail`, this.apiUrl)
       if (options.event) {
         url.searchParams.set('event', options.event)
       }
