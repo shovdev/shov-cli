@@ -330,17 +330,24 @@ class ShovCLI {
     console.log('\n')
   }
 
-  async showFirstTimeExamples(projectUrl) {
+  async showFirstTimeExamples(projectUrl, codeDir = './shov') {
     console.log(chalk.green('📚 Next steps:\n'))
     
     // Add delay helper
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
     
-    // Deploy your first API endpoint (HERO'd - most important)
+    // Edit local files (HERO'd - most important for local dev)
     await delay(500)
-    console.log(chalk.bold.white('   🚀 Deploy your first API endpoint:\n'))
+    console.log(chalk.bold.white('   📝 Edit your backend code locally:\n'))
+    const displayDir = codeDir === '.' ? 'current directory' : codeDir
+    console.log(chalk.gray('   ') + chalk.white(`code ${codeDir}/index.js`))
+    console.log(chalk.gray('   ') + chalk.dim(`Your starter files are in ${displayDir}`))
+    console.log(chalk.gray('   ') + chalk.dim(`Live at: ${projectUrl}\n`))
+    
+    // Deploy your first API endpoint (secondary)
+    await delay(500)
+    console.log(chalk.gray('   🚀 Or deploy code directly:'))
     console.log(chalk.gray('   ') + chalk.white('shov code write') + chalk.gray(' hello ') + chalk.cyan('<(echo \'export default async function(request, shov) { return Response.json({ message: "Hello World", data: await shov.where("users") }); }\')'))
-    console.log(chalk.gray('   ') + chalk.dim('Your code has native access to data, auth, files, and more'))
     console.log(chalk.gray('   ') + chalk.dim(`Live at: ${projectUrl}/api/hello\n`))
     
     // Store data
@@ -433,12 +440,37 @@ class ShovCLI {
       if (data.success) {
         spinner.succeed(`Project created successfully!`)
         
-        // Save config first
+        // Save enhanced config with new fields
+        const codeDir = options.codeDir || './shov'
+        const language = options.typescript || options.lang === 'ts' ? 'typescript' : 'javascript'
+        
         await this.config.saveLocalConfig({
           project: data.project.name,
           apiKey: data.project.apiKey,
+          organization: data.project.organizationSlug,
+          url: data.project.url,
+          codeDir: codeDir,
+          language: language,
         })
-        this.addToEnv(data.project.apiKey, data.project.name)
+        this.addToEnv(
+          data.project.apiKey, 
+          data.project.name,
+          data.project.organizationSlug,
+          data.project.url
+        )
+        
+        // Download starter files locally unless --remote-only or --no-local
+        if (!options.remoteOnly && !options.noLocal) {
+          await this.downloadStarterFiles(
+            data.project.name,
+            data.project.apiKey,
+            data.project.organizationSlug,
+            {
+              codeDir: codeDir,
+              language: language,
+            }
+          )
+        }
         
         if (isFirstTimeUser) {
           // Show animated project details with URL hero'd
@@ -448,8 +480,8 @@ class ShovCLI {
             data.project.url
           )
           
-          // Show next steps with examples (pass URL for final call-to-action)
-          await this.showFirstTimeExamples(data.project.url)
+          // Show next steps with examples (pass URL and codeDir for final call-to-action)
+          await this.showFirstTimeExamples(data.project.url, codeDir)
         } else {
           // Minimal output for returning users but still show URL
           console.log('\n')
@@ -544,12 +576,38 @@ class ShovCLI {
         if (verifyData.success) {
           spinner.succeed(`Project verified and created successfully!`)
           
-          // Save config first
+          // Save enhanced config with new fields
+          const codeDir = options.codeDir || './shov'
+          const language = options.typescript || options.lang === 'ts' ? 'typescript' : 'javascript'
+          
           await this.config.saveLocalConfig({
             project: verifyData.project.name,
             apiKey: verifyData.project.apiKey,
+            organization: verifyData.project.organizationSlug,
+            url: verifyData.project.url,
+            email: email,
+            codeDir: codeDir,
+            language: language,
           })
-          this.addToEnv(verifyData.project.apiKey, verifyData.project.name)
+          this.addToEnv(
+            verifyData.project.apiKey,
+            verifyData.project.name,
+            verifyData.project.organizationSlug,
+            verifyData.project.url
+          )
+          
+          // Download starter files locally unless --remote-only or --no-local
+          if (!options.remoteOnly && !options.noLocal) {
+            await this.downloadStarterFiles(
+              verifyData.project.name,
+              verifyData.project.apiKey,
+              verifyData.project.organizationSlug,
+              {
+                codeDir: codeDir,
+                language: language,
+              }
+            )
+          }
           
           if (isFirstTimeUser) {
             // Show animated project details with URL hero'd
@@ -560,7 +618,7 @@ class ShovCLI {
             )
             
             // Show next steps with examples
-            await this.showFirstTimeExamples()
+            await this.showFirstTimeExamples(verifyData.project.url, codeDir)
           } else {
             // Minimal output for returning users but still show URL
             console.log('\n')
@@ -597,8 +655,12 @@ class ShovCLI {
     }
   }
 
-  addToEnv(apiKey, projectName) {
-    const envVars = `\nSHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n`
+  addToEnv(apiKey, projectName, organizationSlug, url) {
+    // Build env vars with new fields
+    const envVars = `\nSHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n` +
+      (organizationSlug ? `SHOV_ORG=${organizationSlug}\n` : '') +
+      (url ? `SHOV_URL=${url}\n` : '')
+    
     const envLocalPath = path.resolve(process.cwd(), '.env.local')
     const envPath = path.resolve(process.cwd(), '.env')
 
@@ -607,17 +669,17 @@ class ShovCLI {
         const content = fs.readFileSync(envLocalPath, 'utf-8')
         if (!content.includes('SHOV_API_KEY')) {
           fs.appendFileSync(envLocalPath, envVars)
-          console.log('📝 Added API key and project name to your .env.local file.')
+          console.log('📝 Added Shov configuration to your .env.local file.')
         }
       } else if (fs.existsSync(envPath)) {
         const content = fs.readFileSync(envPath, 'utf-8')
         if (!content.includes('SHOV_API_KEY')) {
           fs.appendFileSync(envPath, envVars)
-          console.log('📝 Added API key and project name to your .env file.')
+          console.log('📝 Added Shov configuration to your .env file.')
         }
       } else {
-        fs.writeFileSync(envPath, `SHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n`)
-        console.log('📝 Created .env file with your API key and project name.')
+        fs.writeFileSync(envPath, envVars.trim() + '\n')
+        console.log('📝 Created .env file with your Shov configuration.')
       }
       
       // Add .shov to .gitignore
@@ -627,6 +689,8 @@ class ShovCLI {
       console.warn(`\nPlease add the following to your environment file:\n`)
       console.warn(chalk.bold(`SHOV_API_KEY=${apiKey}`))
       console.warn(chalk.bold(`SHOV_PROJECT=${projectName}`))
+      if (organizationSlug) console.warn(chalk.bold(`SHOV_ORG=${organizationSlug}`))
+      if (url) console.warn(chalk.bold(`SHOV_URL=${url}`))
     }
   }
 
@@ -2340,6 +2404,94 @@ class ShovCLI {
     }
   }
 
+  // Download starter files after project creation
+  async downloadStarterFiles(projectName, apiKey, organizationSlug, options = {}) {
+    const { default: ora } = await import('ora')
+    const codeDir = options.codeDir || './shov'
+    
+    try {
+      const spinner = ora('Downloading starter files...').start()
+      
+      // Get list of all code files using the code API
+      const listUrl = `${this.apiUrl}/api/console/code/${organizationSlug}/${projectName}/files`
+      const listResponse = await fetch(listUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!listResponse.ok) {
+        spinner.warn('Could not download starter files')
+        console.log(chalk.gray('  You can pull them later with: shov code pull'))
+        return
+      }
+      
+      const listData = await listResponse.json()
+      const files = listData.files || []
+      
+      if (files.length === 0) {
+        spinner.warn('No starter files to download')
+        return
+      }
+      
+      // Create code directory if needed (unless it's current dir)
+      if (codeDir !== '.') {
+        if (!fs.existsSync(codeDir)) {
+          fs.mkdirSync(codeDir, { recursive: true })
+        }
+      }
+      
+      // Download each file
+      let successCount = 0
+      for (const file of files) {
+        try {
+          // Determine file path (remove leading slash if present)
+          const filePath = file.filePath.startsWith('/') ? file.filePath.slice(1) : file.filePath
+          const fullPath = path.join(codeDir, filePath)
+          const fileDir = path.dirname(fullPath)
+          
+          // Create subdirectories if needed
+          if (fileDir !== codeDir && fileDir !== '.') {
+            if (!fs.existsSync(fileDir)) {
+              fs.mkdirSync(fileDir, { recursive: true })
+            }
+          }
+          
+          // Write file content
+          fs.writeFileSync(fullPath, file.content || '', 'utf8')
+          successCount++
+        } catch (error) {
+          console.warn(chalk.yellow(`  ⚠️  Failed to download ${file.filePath}: ${error.message}`))
+        }
+      }
+      
+      spinner.succeed(`Downloaded ${successCount} starter files to ${codeDir === '.' ? 'current directory' : codeDir}`)
+      
+      // Show git tip if not in a git repo
+      await this.showGitTipIfNeeded()
+      
+    } catch (error) {
+      console.warn(chalk.yellow(`\n⚠️  Could not download starter files: ${error.message}`))
+      console.log(chalk.gray('  You can pull them later with: shov code pull'))
+    }
+  }
+  
+  // Show git initialization tip if not already in a git repo
+  async showGitTipIfNeeded() {
+    try {
+      const gitDir = path.join(process.cwd(), '.git')
+      if (!fs.existsSync(gitDir)) {
+        console.log('')
+        console.log(chalk.blue('💡 Tip: Initialize git to track changes:'))
+        console.log(chalk.gray('   git init && git add . && git commit -m "Initial Shov backend"'))
+      }
+    } catch (error) {
+      // Ignore errors checking for git
+    }
+  }
+
   async codePull(options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
     const outputDir = options.output || '.'
@@ -2412,6 +2564,313 @@ class ShovCLI {
       }
     } catch (error) {
       throw new Error(`Failed to pull code files: ${error.message}`)
+    }
+  }
+
+  // Deploy Command - Smart deployment with automatic backups
+  async deployCode(options = {}) {
+    const crypto = require('crypto')
+    const { default: ora } = await import('ora')
+    const prompts = require('prompts')
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    const config = await this.config.loadLocalConfig()
+    const codeDir = config.codeDir || './shov'
+    const environment = options.env || 'production'
+    
+    try {
+      // Check if code directory exists
+      if (!fs.existsSync(codeDir)) {
+        throw new Error(`Code directory not found: ${codeDir}. Run 'shov new' to create it.`)
+      }
+      
+      console.log(chalk.blue(`Deploying from ${codeDir} to ${environment}...`))
+      console.log('')
+      
+      // Scan local files
+      const localFiles = this.scanLocalCodeFiles(codeDir)
+      
+      if (localFiles.length === 0) {
+        console.log(chalk.yellow('No code files found in local directory.'))
+        return
+      }
+      
+      // Get remote files for comparison
+      const spinner = ora('Fetching remote files...').start()
+      const remoteResult = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      spinner.stop()
+      
+      const remoteFiles = remoteResult.functions || []
+      const remoteMap = new Map(remoteFiles.map(f => [f.name, f]))
+      
+      // Calculate changes
+      const toCreate = []
+      const toUpdate = []
+      const toDelete = options.delete ? [] : null
+      const unchanged = []
+      
+      for (const local of localFiles) {
+        const remote = remoteMap.get(local.name)
+        if (!remote) {
+          toCreate.push(local)
+        } else if (local.size !== remote.size) {
+          // Size changed, definitely update
+          toUpdate.push(local)
+        } else {
+          // Size matches - assume unchanged for now
+          // TODO: Add checksum comparison when server provides it
+          unchanged.push(local)
+        }
+      }
+      
+      if (options.delete) {
+        for (const [name, remote] of remoteMap) {
+          if (!localFiles.find(l => l.name === name)) {
+            toDelete.push(remote)
+          }
+        }
+      }
+      
+      // Show changes
+      console.log(chalk.bold('📦 Changes to deploy:'))
+      console.log('')
+      
+      if (toCreate.length > 0) {
+        console.log(chalk.green(`  CREATE (${toCreate.length} file${toCreate.length > 1 ? 's' : ''})`))
+        toCreate.forEach(f => console.log(chalk.green(`    + ${f.name}`)))
+        console.log('')
+      }
+      
+      if (toUpdate.length > 0) {
+        console.log(chalk.yellow(`  UPDATE (${toUpdate.length} file${toUpdate.length > 1 ? 's' : ''})`))
+        toUpdate.forEach(f => console.log(chalk.yellow(`    ~ ${f.name}`)))
+        console.log('')
+      }
+      
+      if (toDelete && toDelete.length > 0) {
+        console.log(chalk.red(`  DELETE (${toDelete.length} file${toDelete.length > 1 ? 's' : ''})`))
+        toDelete.forEach(f => console.log(chalk.red(`    - ${f.name}`)))
+        console.log('')
+      }
+      
+      if (unchanged.length > 0) {
+        console.log(chalk.gray(`  ${unchanged.length} file(s) unchanged`))
+        console.log('')
+      }
+      
+      const totalChanges = toCreate.length + toUpdate.length + (toDelete ? toDelete.length : 0)
+      
+      if (totalChanges === 0) {
+        console.log(chalk.green('✅ No changes to deploy'))
+        return
+      }
+      
+      if (options.dryRun) {
+        console.log(chalk.blue('🔍 Dry run - no changes made'))
+        return
+      }
+      
+      // Confirm deployment
+      if (!options.yes) {
+        const response = await prompts({
+          type: 'confirm',
+          name: 'proceed',
+          message: `Deploy ${totalChanges} change(s) to ${environment}?`,
+          initial: false
+        })
+        
+        if (!response.proceed) {
+          console.log(chalk.gray('Deployment cancelled'))
+          return
+        }
+      }
+      
+      // Deploy changes
+      let deployed = 0
+      
+      for (const file of toCreate.concat(toUpdate)) {
+        const code = fs.readFileSync(file.path, 'utf8')
+        await this.apiCall(`/code-write/${projectName}`, {
+          name: file.name,
+          code,
+          config: {
+            timeout: 10000,
+            description: `Deployed via CLI`
+          }
+        }, apiKey, options)
+        deployed++
+      }
+      
+      if (toDelete) {
+        for (const file of toDelete) {
+          await this.apiCall(`/code-delete/${projectName}/${file.name}`, {
+            name: file.name
+          }, apiKey, options)
+          deployed++
+        }
+      }
+      
+      console.log('')
+      console.log(chalk.green(`✅ Deployed ${deployed} change(s) to ${environment}`))
+      console.log('')
+      
+      const projectUrl = config.url || `https://${projectName}.shov.dev`
+      console.log(chalk.gray(`  Live at: ${projectUrl}`))
+      
+      if (options.json) {
+        console.log(JSON.stringify({
+          success: true,
+          changes: totalChanges,
+          created: toCreate.length,
+          updated: toUpdate.length,
+          deleted: toDelete ? toDelete.length : 0,
+          environment
+        }, null, 2))
+      }
+    } catch (error) {
+      throw new Error(`Failed to deploy: ${error.message}`)
+    }
+  }
+
+  // Helper to scan local code files
+  scanLocalCodeFiles(dir) {
+    const crypto = require('crypto')
+    const files = []
+    
+    const supportedPatterns = [
+      'index.js', 'index.ts',
+      'config.js', 'config.ts',
+      'routes.js', 'routes.ts',
+      'routes/**/*',
+      'services/**/*',
+      'functions/**/*',
+      'middleware/**/*',
+      'utils/**/*',
+      'config/**/*'
+    ]
+    
+    const scanDir = (currentDir, basePath = '') => {
+      if (!fs.existsSync(currentDir)) return
+      
+      const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+      
+      for (const entry of entries) {
+        const fullPath = path.join(currentDir, entry.name)
+        const relativePath = basePath ? path.join(basePath, entry.name) : entry.name
+        
+        if (entry.isDirectory()) {
+          // Only scan supported subdirectories
+          if (['routes', 'services', 'functions', 'middleware', 'utils', 'config'].includes(entry.name)) {
+            scanDir(fullPath, relativePath)
+          }
+        } else if (entry.isFile()) {
+          // Only include supported files
+          const ext = path.extname(entry.name)
+          if (['.js', '.ts'].includes(ext)) {
+            const content = fs.readFileSync(fullPath, 'utf8')
+            const checksum = crypto.createHash('md5').update(content).digest('hex')
+            
+            files.push({
+              name: relativePath.replace(/\\/g, '/'), // Normalize path separators
+              path: fullPath,
+              checksum,
+              size: content.length
+            })
+          }
+        }
+      }
+    }
+    
+    scanDir(dir)
+    return files
+  }
+
+  // Pull Command - Pull code from server to local
+  async pullCode(options = {}) {
+    const { default: ora } = await import('ora')
+    const prompts = require('prompts')
+    const { projectName, apiKey } = await this.getProjectConfig(options)
+    const config = await this.config.loadLocalConfig()
+    const outputDir = options.output || config.codeDir || './shov'
+    const environment = options.env || 'production'
+    
+    try {
+      console.log(chalk.blue(`Pulling from ${environment} to ${outputDir}...`))
+      console.log('')
+      
+      // Check for uncommitted git changes
+      if (fs.existsSync('.git') && !options.yes) {
+        try {
+          const { execSync } = require('child_process')
+          const gitStatus = execSync('git status --porcelain', { encoding: 'utf8' })
+          if (gitStatus.trim()) {
+            console.log(chalk.yellow('⚠️  Warning: You have uncommitted git changes'))
+            console.log('')
+          }
+        } catch (err) {
+          // Ignore git check errors
+        }
+      }
+      
+      // Confirm overwrite
+      if (!options.yes && fs.existsSync(outputDir)) {
+        const response = await prompts({
+          type: 'confirm',
+          name: 'proceed',
+          message: '⚠️  This will overwrite local files. Continue?',
+          initial: false
+        })
+        
+        if (!response.proceed) {
+          console.log(chalk.gray('Pull cancelled'))
+          return
+        }
+      }
+      
+      // Fetch files
+      const spinner = ora('Fetching code files from server...').start()
+      const listResult = await this.apiCall(`/code-list/${projectName}`, {}, apiKey, options)
+      spinner.stop()
+      
+      if (!listResult.functions || listResult.functions.length === 0) {
+        console.log(chalk.yellow('No code files found on server.'))
+        return
+      }
+      
+      // Create output directory
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true })
+      }
+      
+      // Download files
+      let successCount = 0
+      
+      for (const func of listResult.functions) {
+        const readResult = await this.apiCall(`/code-read/${projectName}/${func.name}`, {}, apiKey, options)
+        const filePath = path.join(outputDir, func.name)
+        const fileDir = path.dirname(filePath)
+        
+        if (fileDir !== outputDir) {
+          fs.mkdirSync(fileDir, { recursive: true })
+        }
+        
+        fs.writeFileSync(filePath, readResult.code, 'utf8')
+        console.log(chalk.green(`✓ ${func.name}`))
+        successCount++
+      }
+      
+      console.log('')
+      console.log(chalk.green(`✅ Pulled ${successCount} file(s) from ${environment}`))
+      
+      if (options.json) {
+        console.log(JSON.stringify({
+          success: true,
+          filesPulled: successCount,
+          outputDirectory: outputDir,
+          environment
+        }, null, 2))
+      }
+    } catch (error) {
+      throw new Error(`Failed to pull code: ${error.message}`)
     }
   }
 

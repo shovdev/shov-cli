@@ -43,7 +43,10 @@ class ShovConfig {
   // Save local project configuration
   async saveLocalConfig(config) {
     const configPath = path.join(process.cwd(), this.localConfigFile)
-    await fs.writeJSON(configPath, config, { spaces: 2 })
+    // Ensure we preserve any existing fields not in the new config
+    const existing = await this.loadLocalConfig()
+    const merged = { ...existing, ...config }
+    await fs.writeJSON(configPath, merged, { spaces: 2 })
   }
 
   // Get merged configuration (local overrides global)

@@ -15,6 +15,11 @@ program
   .description('Create a new Shov project')
   .option('-e, --email <email>', 'Your email address (optional)')
   .option('--starter <type>', 'Deploy starter template: b2c (consumer app) or b2b (SaaS app)')
+  .option('--code-dir <path>', 'Directory for code files (default: ./shov, use "." for current dir)')
+  .option('--lang <language>', 'Language for starter files: js or ts (default: js)')
+  .option('--typescript', 'Use TypeScript starter files (shorthand for --lang ts)')
+  .option('--remote-only', 'Create project on server only, no local files')
+  .option('--no-local', 'Alias for --remote-only')
   .action(async (projectName, options) => {
     try {
       const cli = new ShovCLI(options);
@@ -597,6 +602,48 @@ code
     try {
       const cli = new ShovCLI(options);
       await cli.codePull(options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+// Deploy Command - Smart deployment with automatic backups
+program
+  .command('deploy')
+  .description('Deploy local code files to server with smart diff and automatic backups')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--env <environment>', 'Target environment (default: production)')
+  .option('--watch', 'Watch for changes and auto-deploy')
+  .option('--dry-run', 'Preview changes without deploying')
+  .option('--delete', 'Delete remote files not in local (explicit opt-in)')
+  .option('--yes', 'Skip confirmation prompts')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.deployCode(options);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+// Pull Command - Pull code from server to local
+program
+  .command('pull')
+  .description('Pull code files from server to local directory')
+  .option('-p, --project <project>', 'Project name (or use .shov config)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('--env <environment>', 'Source environment (default: production)')
+  .option('--output <directory>', 'Output directory (default: configured codeDir)')
+  .option('--yes', 'Skip confirmation prompts')
+  .option('--json', 'Output JSON for scripting')
+  .action(async (options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.pullCode(options);
     } catch (error) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);

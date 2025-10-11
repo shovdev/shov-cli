@@ -21,7 +21,7 @@ npm install -g shov
 ### 1. Create a new project
 
 ```bash
-# Create an anonymous project
+# Create an anonymous project (default: creates ./shov/ directory with starter files)
 shov new
 
 # Create a named project
@@ -29,13 +29,34 @@ shov new my-project
 
 # Create a project with email verification (for account management)
 shov new my-project --email user@example.com
+
+# Use TypeScript instead of JavaScript
+shov new my-project --lang ts
+shov new my-project --typescript  # shorthand
+
+# Custom code directory location
+shov new my-project --code-dir .           # Current directory (like Next.js)
+shov new my-project --code-dir ./backend   # Custom directory
+shov new my-project --code-dir ./api       # Another custom location
+
+# Create project on server only (no local files)
+shov new my-project --remote-only
+shov new my-project --no-local  # alias
+
+# Combined options
+shov new my-project --lang ts --code-dir ./backend --email user@example.com
+
+# With starter templates
+shov new my-app --starter b2c --lang ts --code-dir ./shov
+shov new my-saas --starter b2b --lang ts --code-dir ./backend
 ```
 
 This will:
 - Create a new Shov project (anonymous by default)
 - Generate an API key
-- Save configuration locally to `.shov` file
-- Add environment variables to your `.env` file
+- **Download starter files** to local directory (default: `./shov/`)
+- Save configuration to `.shov` file (includes project, API key, org, URL)
+- Add environment variables to your `.env` file (includes `SHOV_PROJECT`, `SHOV_API_KEY`, `SHOV_ORG`, `SHOV_URL`)
 - If email is provided, send a verification code for account linking
 
 ### Claiming Anonymous Projects
