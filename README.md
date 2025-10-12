@@ -44,11 +44,17 @@ shov new my-project --remote-only
 shov new my-project --no-local  # alias
 
 # Combined options
-shov new my-project --lang ts --code-dir ./backend --email user@example.com
+shov new my-project --ts --code-dir ./backend --email user@example.com
 
-# With starter templates
-shov new my-app --starter b2c --lang ts --code-dir ./shov
-shov new my-saas --starter b2b --lang ts --code-dir ./backend
+# With starter templates (recommended syntax)
+shov new my-app --b2c --ts --code-dir ./shov
+shov new my-saas --b2b --ts --code-dir ./backend
+
+# With starter templates + frontend (auto-configured!)
+shov new my-app --b2c --react          # B2C + React (VITE_SHOV_URL in .env)
+shov new my-app --b2c --ts --vue       # B2C + TypeScript + Vue
+shov new my-saas --b2b --nextjs        # B2B + Next.js (NEXT_PUBLIC_SHOV_URL in .env.local)
+shov new my-saas --b2b --ts --nextjs   # B2B + TypeScript + Next.js
 ```
 
 This will:

@@ -17,7 +17,10 @@ program
   .option('--b2c', 'Deploy B2C starter (consumer app with authentication)')
   .option('--b2b', 'Deploy B2B starter (SaaS app with teams, RBAC, and billing)')
   .option('--starter <type>', 'Deploy starter template: b2c or b2b (alternative to --b2c/--b2b flags)')
-  .option('--frontend <framework>', 'Include frontend starter template (react, vue, next, or svelte)')
+  .option('--nextjs', 'Include Next.js frontend starter (auto-configured with backend)')
+  .option('--react', 'Include React frontend starter (auto-configured with backend)')
+  .option('--vue', 'Include Vue frontend starter (auto-configured with backend)')
+  .option('--svelte', 'Include Svelte frontend starter (auto-configured with backend)')
   .option('--code-dir <path>', 'Directory for code files (default: ./shov, use "." for current dir)')
   .option('--lang <language>', 'Language for edge API files: js or ts (default: js)')
   .option('--ts', 'Use TypeScript for edge APIs (shorthand for --lang ts)')
@@ -39,6 +42,17 @@ program
         options.lang = 'ts';
       } else if (options.js) {
         options.lang = 'js';
+      }
+      
+      // Convert framework flags to frontend option
+      if (options.nextjs) {
+        options.frontend = 'nextjs';
+      } else if (options.react) {
+        options.frontend = 'react';
+      } else if (options.vue) {
+        options.frontend = 'vue';
+      } else if (options.svelte) {
+        options.frontend = 'svelte';
       }
       
       const cli = new ShovCLI(options);

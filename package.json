@@ -1,6 +1,6 @@
 {
   "name": "shov",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "description": "Shov CLI - Ship Production Backends in Seconds, Not Weeks with vector search and real-time streaming",
   "main": "dist/index.js",
   "bin": {

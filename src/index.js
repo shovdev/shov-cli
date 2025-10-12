@@ -458,7 +458,8 @@ class ShovCLI {
           data.project.apiKey, 
           data.project.name,
           data.project.organizationSlug,
-          data.project.url
+          data.project.url,
+          options.frontend
         )
         
         // Download starter files locally unless --remote-only or --no-local
@@ -597,7 +598,8 @@ class ShovCLI {
             verifyData.project.apiKey,
             verifyData.project.name,
             verifyData.project.organizationSlug,
-            verifyData.project.url
+            verifyData.project.url,
+            options.frontend
           )
           
           // Download starter files locally unless --remote-only or --no-local
@@ -659,11 +661,21 @@ class ShovCLI {
     }
   }
 
-  addToEnv(apiKey, projectName, organizationSlug, url) {
+  addToEnv(apiKey, projectName, organizationSlug, url, frontend) {
     // Build env vars with new fields
-    const envVars = `\nSHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n` +
+    let envVars = `\nSHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n` +
       (organizationSlug ? `SHOV_ORG=${organizationSlug}\n` : '') +
       (url ? `SHOV_URL=${url}\n` : '')
+    
+    // Add frontend-specific env vars (Next.js needs NEXT_PUBLIC_ prefix)
+    if (frontend === 'nextjs') {
+      envVars += `NEXT_PUBLIC_SHOV_URL=${url}\n`
+      envVars += `NEXT_PUBLIC_SHOV_API_KEY=${apiKey}\n`
+    } else if (frontend) {
+      // For React/Vue/Svelte, use standard prefixes
+      envVars += `VITE_SHOV_URL=${url}\n`
+      envVars += `VITE_SHOV_API_KEY=${apiKey}\n`
+    }
     
     const envLocalPath = path.resolve(process.cwd(), '.env.local')
     const envPath = path.resolve(process.cwd(), '.env')
