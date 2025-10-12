@@ -14,17 +14,18 @@ program
   .command('new [projectName]')
   .description('Create a new Shov project')
   .option('-e, --email <email>', 'Your email address (optional)')
-  .option('--b2c', 'Deploy B2C starter (consumer app with authentication)')
-  .option('--b2b', 'Deploy B2B starter (SaaS app with teams, RBAC, and billing)')
+  .option('--b2c', 'Deploy full-stack B2C app (Next.js frontend + B2C backend with auth)')
+  .option('--b2b', 'Deploy full-stack B2B SaaS (Next.js frontend + B2B backend with teams, RBAC)')
   .option('--starter <type>', 'Deploy starter template: b2c or b2b (alternative to --b2c/--b2b flags)')
-  .option('--nextjs', 'Include Next.js frontend starter (auto-configured with backend)')
-  .option('--react', 'Include React frontend starter (auto-configured with backend)')
-  .option('--vue', 'Include Vue frontend starter (auto-configured with backend)')
-  .option('--svelte', 'Include Svelte frontend starter (auto-configured with backend)')
+  .option('--backend-only', 'Backend only - exclude frontend (use with --b2b or --b2c)')
+  .option('--nextjs', 'Use Next.js frontend (default for --b2b/--b2c)')
+  .option('--react', 'Use React frontend instead of Next.js')
+  .option('--vue', 'Use Vue frontend instead of Next.js')
+  .option('--svelte', 'Use Svelte frontend instead of Next.js')
   .option('--code-dir <path>', 'Directory for code files (default: ./shov, use "." for current dir)')
-  .option('--lang <language>', 'Language for edge API files: js or ts (default: js)')
-  .option('--ts', 'Use TypeScript for edge APIs (shorthand for --lang ts)')
-  .option('--js', 'Use JavaScript for edge APIs (shorthand for --lang js, default)')
+  .option('--lang <language>', 'Language for edge API files: js or ts (default: ts for starters, js for blank)')
+  .option('--ts', 'Use TypeScript (default for --b2b/--b2c)')
+  .option('--js', 'Use JavaScript instead of TypeScript')
   .option('--typescript', 'Alias for --ts')
   .option('--remote-only', 'Create project on server only, no local files')
   .option('--no-local', 'Alias for --remote-only')
@@ -37,6 +38,11 @@ program
         options.starter = 'b2b';
       }
       
+      // Default to TypeScript for starters
+      if (options.starter && !options.js && !options.lang) {
+        options.lang = 'ts';
+      }
+      
       // Convert --ts and --js flags to lang option
       if (options.ts || options.typescript) {
         options.lang = 'ts';
@@ -45,14 +51,24 @@ program
       }
       
       // Convert framework flags to frontend option
-      if (options.nextjs) {
-        options.frontend = 'nextjs';
-      } else if (options.react) {
+      if (options.react) {
         options.frontend = 'react';
       } else if (options.vue) {
         options.frontend = 'vue';
       } else if (options.svelte) {
         options.frontend = 'svelte';
+      } else if (options.nextjs) {
+        options.frontend = 'nextjs';
+      }
+      
+      // Default: --b2b or --b2c includes Next.js frontend (unless --backend-only)
+      if (options.starter && !options.backendOnly && !options.frontend) {
+        options.frontend = 'nextjs';
+      }
+      
+      // If --backend-only is specified, remove frontend
+      if (options.backendOnly) {
+        options.frontend = null;
       }
       
       const cli = new ShovCLI(options);
