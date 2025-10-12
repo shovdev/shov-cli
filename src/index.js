@@ -423,6 +423,8 @@ class ShovCLI {
         body: JSON.stringify({
           projectName: projectName || null,
           starter: options.starter || null,
+          lang: options.lang || null,
+          frontend: options.frontend || null,
         }),
       })
 
@@ -522,6 +524,8 @@ class ShovCLI {
           projectName: projectName || null,
           email: email,
           starter: options.starter || null,
+          lang: options.lang || null,
+          frontend: options.frontend || null,
         }),
       })
 
@@ -2414,7 +2418,8 @@ class ShovCLI {
       const spinner = ora('Downloading starter files...').start()
       
       // Get list of all code files using the code API
-      const listUrl = `${this.apiUrl}/api/console/code/${organizationSlug}/${projectName}/files`
+      // Try the standard code API endpoint first
+      const listUrl = `${this.apiUrl}/api/code/${projectName}`
       const listResponse = await fetch(listUrl, {
         method: 'GET',
         headers: {
@@ -2430,7 +2435,16 @@ class ShovCLI {
       }
       
       const listData = await listResponse.json()
-      const files = listData.files || []
+      
+      // The /api/code/{project} endpoint returns { success: true, functions: [...] }
+      // Each function has { name, code, ... }
+      const functions = listData.functions || []
+      
+      // Convert to file structure
+      const files = functions.map(func => ({
+        filePath: `routes/${func.name}.js`,
+        content: func.code
+      }))
       
       if (files.length === 0) {
         spinner.warn('No starter files to download')

@@ -14,14 +14,33 @@ program
   .command('new [projectName]')
   .description('Create a new Shov project')
   .option('-e, --email <email>', 'Your email address (optional)')
-  .option('--starter <type>', 'Deploy starter template: b2c (consumer app) or b2b (SaaS app)')
+  .option('--b2c', 'Deploy B2C starter (consumer app with authentication)')
+  .option('--b2b', 'Deploy B2B starter (SaaS app with teams, RBAC, and billing)')
+  .option('--starter <type>', 'Deploy starter template: b2c or b2b (alternative to --b2c/--b2b flags)')
+  .option('--frontend <framework>', 'Include frontend starter template (react, vue, next, or svelte)')
   .option('--code-dir <path>', 'Directory for code files (default: ./shov, use "." for current dir)')
-  .option('--lang <language>', 'Language for starter files: js or ts (default: js)')
-  .option('--typescript', 'Use TypeScript starter files (shorthand for --lang ts)')
+  .option('--lang <language>', 'Language for edge API files: js or ts (default: js)')
+  .option('--ts', 'Use TypeScript for edge APIs (shorthand for --lang ts)')
+  .option('--js', 'Use JavaScript for edge APIs (shorthand for --lang js, default)')
+  .option('--typescript', 'Alias for --ts')
   .option('--remote-only', 'Create project on server only, no local files')
   .option('--no-local', 'Alias for --remote-only')
   .action(async (projectName, options) => {
     try {
+      // Convert --b2c and --b2b flags to starter option
+      if (options.b2c) {
+        options.starter = 'b2c';
+      } else if (options.b2b) {
+        options.starter = 'b2b';
+      }
+      
+      // Convert --ts and --js flags to lang option
+      if (options.ts || options.typescript) {
+        options.lang = 'ts';
+      } else if (options.js) {
+        options.lang = 'js';
+      }
+      
       const cli = new ShovCLI(options);
       await cli.createProject(projectName, options)
     } catch (error) {
