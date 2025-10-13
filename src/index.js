@@ -616,6 +616,7 @@ class ShovCLI {
           await this.downloadFrontendTemplate(
             data.project.name,
             data.project.apiKey,
+            data.project.url,
             {
               starter: options.starter || 'b2b',
               frontend: options.frontend,
@@ -771,6 +772,7 @@ class ShovCLI {
             await this.downloadFrontendTemplate(
               verifyData.project.name,
               verifyData.project.apiKey,
+              verifyData.project.url,
               {
                 starter: options.starter || 'b2b',
                 frontend: options.frontend,
@@ -2725,7 +2727,7 @@ class ShovCLI {
   }
   
   // Download frontend template (e.g., Next.js) when requested
-  async downloadFrontendTemplate(projectName, apiKey, options = {}) {
+  async downloadFrontendTemplate(projectName, apiKey, backendUrl, options = {}) {
     const { default: ora } = await import('ora')
     const starter = options.starter || 'b2b'
     const framework = options.frontend // e.g., 'nextjs'
@@ -2773,13 +2775,14 @@ class ShovCLI {
       // Create framework-specific env file inside the frontend app
       try {
         const envLocalPath = path.join(appDir, '.env.local')
-        const codeApiUrl = `${this.apiUrl}/api/code/${projectName}`
+        // Use the actual backend runtime URL, not the code API
+        const runtimeUrl = backendUrl || `https://${projectName}.shov.dev`
         let envContent = ''
         if (framework === 'nextjs') {
-          envContent += `NEXT_PUBLIC_SHOV_URL=${codeApiUrl}\n`
+          envContent += `NEXT_PUBLIC_SHOV_URL=${runtimeUrl}\n`
           envContent += `NEXT_PUBLIC_SHOV_API_KEY=${apiKey}\n`
         } else {
-          envContent += `VITE_SHOV_URL=${codeApiUrl}\n`
+          envContent += `VITE_SHOV_URL=${runtimeUrl}\n`
           envContent += `VITE_SHOV_API_KEY=${apiKey}\n`
         }
         fs.writeFileSync(envLocalPath, envContent, 'utf8')
