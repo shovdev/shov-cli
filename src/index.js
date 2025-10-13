@@ -610,6 +610,20 @@ class ShovCLI {
               frontend: options.frontend,
             }
           )
+
+        // If a frontend was requested (e.g., --b2b implies nextjs unless --backend-only), fetch it too
+        if (options.frontend) {
+          await this.downloadFrontendTemplate(
+            data.project.name,
+            data.project.apiKey,
+            {
+              starter: options.starter || 'b2b',
+              frontend: options.frontend,
+              lang: options.lang,
+              typescript: options.typescript || options.lang === 'ts'
+            }
+          )
+        }
         }
         
         if (isFirstTimeUser) {
@@ -752,6 +766,19 @@ class ShovCLI {
                 frontend: options.frontend,
               }
             )
+
+          if (options.frontend) {
+            await this.downloadFrontendTemplate(
+              verifyData.project.name,
+              verifyData.project.apiKey,
+              {
+                starter: options.starter || 'b2b',
+                frontend: options.frontend,
+                lang: options.lang,
+                typescript: options.typescript || options.lang === 'ts'
+              }
+            )
+          }
           }
           
           if (isFirstTimeUser) {
@@ -2694,6 +2721,77 @@ class ShovCLI {
       } catch (readmeError) {
         console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${readmeError.message}`))
       }
+    }
+  }
+  
+  // Download frontend template (e.g., Next.js) when requested
+  async downloadFrontendTemplate(projectName, apiKey, options = {}) {
+    const { default: ora } = await import('ora')
+    const starter = options.starter || 'b2b'
+    const framework = options.frontend // e.g., 'nextjs'
+    if (!framework) return
+    const lang = (options.lang === 'ts' || options.typescript) ? 'ts' : 'js'
+    const appDirName = `${framework}-app`
+    const appDir = path.join(process.cwd(), appDirName)
+
+    const spinner = ora(`Downloading ${framework} frontend template...`).start()
+    try {
+      const url = new URL(`${this.apiUrl}/api/templates/frontend`)
+      url.searchParams.set('starter', starter)
+      url.searchParams.set('framework', framework)
+      url.searchParams.set('lang', lang)
+
+      const response = await fetch(url.toString(), { method: 'GET' })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok || !data.success) {
+        spinner.warn(`Frontend template not available (${starter} + ${framework} + ${lang})`)
+        if (data.message) console.log(chalk.gray(`  ${data.message}`))
+        return
+      }
+
+      const files = data.files || {}
+
+      // Create app directory
+      if (!fs.existsSync(appDir)) {
+        fs.mkdirSync(appDir, { recursive: true })
+      }
+
+      // Write files
+      let written = 0
+      for (const [relPath, content] of Object.entries(files)) {
+        const safePath = relPath.startsWith('/') ? relPath.slice(1) : relPath
+        const fullPath = path.join(appDir, safePath)
+        const fileDir = path.dirname(fullPath)
+        if (!fs.existsSync(fileDir)) {
+          fs.mkdirSync(fileDir, { recursive: true })
+        }
+        fs.writeFileSync(fullPath, content || '', 'utf8')
+        written++
+      }
+
+      // Create framework-specific env file inside the frontend app
+      try {
+        const envLocalPath = path.join(appDir, '.env.local')
+        const codeApiUrl = `${this.apiUrl}/api/code/${projectName}`
+        let envContent = ''
+        if (framework === 'nextjs') {
+          envContent += `NEXT_PUBLIC_SHOV_URL=${codeApiUrl}\n`
+          envContent += `NEXT_PUBLIC_SHOV_API_KEY=${apiKey}\n`
+        } else {
+          envContent += `VITE_SHOV_URL=${codeApiUrl}\n`
+          envContent += `VITE_SHOV_API_KEY=${apiKey}\n`
+        }
+        fs.writeFileSync(envLocalPath, envContent, 'utf8')
+      } catch (envError) {
+        console.warn(chalk.yellow(`  ⚠️  Could not create frontend .env.local: ${envError.message}`))
+      }
+
+      spinner.succeed(`Downloaded ${written} ${framework} files to ./${appDirName}`)
+      console.log(chalk.gray('  Open the frontend:'))
+      console.log(chalk.gray(`   cd ${appDirName} && npm install && npm run dev`))
+    } catch (error) {
+      spinner.warn(`Could not download ${framework} template: ${error.message}`)
     }
   }
   
