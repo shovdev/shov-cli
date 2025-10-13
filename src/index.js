@@ -10,6 +10,141 @@ const fetch = (...args) =>
 // Get __dirname equivalent in CommonJS
 const __dirname = __dirname || path.dirname(require.main.filename)
 
+/**
+ * Generate README.md content for projects
+ */
+function generateReadmeForProject(projectName, projectType = 'blank', hasFrontend = false, frontendType = null) {
+  const isB2C = projectType === 'b2c';
+  const isB2B = projectType === 'b2b';
+  const isBlank = projectType === 'blank';
+  
+  let readme = `# ${projectName}\n\n`;
+  
+  if (isBlank) {
+    readme += `A Shov backend project. Your edge API is deployed and ready to use!\n\n`;
+    readme += `## 🚀 Your API URL\n\n`;
+    readme += `\`\`\`\nhttps://shov.com/api/code/${projectName}\n\`\`\`\n\n`;
+    readme += `## Quick Start\n\n`;
+    readme += `\`\`\`bash\n`;
+    readme += `# Test your API\ncurl https://shov.com/api/code/${projectName}\n\n`;
+    readme += `# Add data to collections\nshov add users name:string email:string\n\n`;
+    readme += `# Deploy changes\nshov deploy\n`;
+    readme += `\`\`\`\n\n`;
+  } else if (isB2C) {
+    readme += `A complete B2C starter with authentication, user profiles, and API key generation.\n\n`;
+    readme += `## ✨ Features\n\n`;
+    readme += `- ✅ User authentication (email + OTP)\n`;
+    readme += `- ✅ User profiles and settings\n`;
+    readme += `- ✅ API key generation\n`;
+    readme += `- ✅ Protected API routes\n`;
+    if (hasFrontend) {
+      readme += `- ✅ ${frontendType.charAt(0).toUpperCase() + frontendType.slice(1)} frontend (pre-configured)\n`;
+    }
+    readme += `\n## 🚀 Your API URL\n\n`;
+    readme += `\`\`\`\nhttps://shov.com/api/code/${projectName}\n\`\`\`\n\n`;
+    if (hasFrontend) {
+      readme += `## Quick Start\n\n`;
+      readme += `### Start the frontend:\n\n`;
+      readme += `\`\`\`bash\ncd ${frontendType}-app\nnpm install\nnpm run dev\n\`\`\`\n\n`;
+      readme += `Visit http://localhost:${frontendType === 'nextjs' ? '3000' : '5173'} and try signing up!\n\n`;
+    } else {
+      readme += `## Quick Start\n\n`;
+      readme += `\`\`\`bash\n# Test authentication\nshov send-otp user@example.com\nshov verify-otp user@example.com <PIN>\n\`\`\`\n\n`;
+    }
+    readme += `### Customize the backend:\n\n`;
+    readme += `Edit the TypeScript files in \`./shov/\` and deploy:\n\n`;
+    readme += `\`\`\`bash\nshov deploy\n\`\`\`\n\n`;
+  } else if (isB2B) {
+    readme += `A complete B2B SaaS starter with teams, RBAC, and billing integration.\n\n`;
+    readme += `## ✨ Features\n\n`;
+    readme += `- ✅ Multi-tenant architecture\n`;
+    readme += `- ✅ Team management and invites\n`;
+    readme += `- ✅ Role-based access control\n`;
+    readme += `- ✅ Stripe billing integration\n`;
+    readme += `- ✅ User authentication\n`;
+    if (hasFrontend) {
+      readme += `- ✅ ${frontendType.charAt(0).toUpperCase() + frontendType.slice(1)} frontend (pre-configured)\n`;
+    }
+    readme += `\n## 🚀 Your API URL\n\n`;
+    readme += `\`\`\`\nhttps://shov.com/api/code/${projectName}\n\`\`\`\n\n`;
+    if (hasFrontend) {
+      readme += `## Quick Start\n\n`;
+      readme += `### 1. Start the frontend:\n\n`;
+      readme += `\`\`\`bash\ncd ${frontendType}-app\nnpm install\nnpm run dev\n\`\`\`\n\n`;
+      readme += `### 2. Configure Stripe (optional):\n\n`;
+      readme += `\`\`\`bash\nshov secrets set STRIPE_SECRET_KEY sk_test_...\nshov secrets set STRIPE_WEBHOOK_SECRET whsec_...\n\`\`\`\n\n`;
+      readme += `Visit http://localhost:${frontendType === 'nextjs' ? '3000' : '5173'} and create your first organization!\n\n`;
+    } else {
+      readme += `## Quick Start\n\n`;
+      readme += `### 1. Configure Stripe (optional):\n\n`;
+      readme += `\`\`\`bash\nshov secrets set STRIPE_SECRET_KEY sk_test_...\nshov secrets set STRIPE_WEBHOOK_SECRET whsec_...\n\`\`\`\n\n`;
+      readme += `### 2. Test the API:\n\n`;
+      readme += `\`\`\`bash\nshov send-otp admin@example.com\nshov verify-otp admin@example.com <PIN>\n\`\`\`\n\n`;
+    }
+    readme += `### Customize the backend:\n\n`;
+    readme += `Edit the TypeScript files in \`./shov/\` and deploy:\n\n`;
+    readme += `\`\`\`bash\nshov deploy\n\`\`\`\n\n`;
+  }
+  
+  readme += `## 📚 Essential Commands\n\n`;
+  readme += `### Data Operations\n\n`;
+  readme += `\`\`\`bash\n`;
+  readme += `# Add items to collections\nshov add users name:Alice email:alice@example.com\n\n`;
+  readme += `# Query with filters\nshov where users --filter '{"email":"alice@example.com"}'\n\n`;
+  readme += `# Update items\nshov update users <ID> email:newemail@example.com\n\n`;
+  readme += `# Remove items\nshov remove users <ID>\n\`\`\`\n\n`;
+  
+  readme += `### File Storage\n\n`;
+  readme += `\`\`\`bash\n`;
+  readme += `# Upload files\nshov files upload ./image.png\n\n`;
+  readme += `# List files\nshov files list\n\n`;
+  readme += `# Delete files\nshov files delete <FILE_ID>\n\`\`\`\n\n`;
+  
+  readme += `### Secrets Management\n\n`;
+  readme += `\`\`\`bash\n`;
+  readme += `# Set secrets\nshov secrets set API_KEY your-secret-value\n\n`;
+  readme += `# List secrets\nshov secrets list\n\n`;
+  readme += `# Delete secrets\nshov secrets delete API_KEY\n\`\`\`\n\n`;
+  
+  readme += `### Code Deployment\n\n`;
+  readme += `\`\`\`bash\n`;
+  readme += `# Deploy your code\nshov deploy\n\n`;
+  readme += `# Deploy specific files\nshov deploy ./shov/routes/auth.ts\n\n`;
+  readme += `# Test before deploying\nshov deploy --dry-run\n\`\`\`\n\n`;
+  
+  readme += `## 💬 ASK - AI Database Assistant\n\n`;
+  readme += `Query your data using natural language:\n\n`;
+  readme += `\`\`\`bash\n`;
+  readme += `# Natural language queries\nask shov "Show me all users who signed up this week"\n\n`;
+  readme += `# Generate charts\nask shov "Chart daily active users" --format chart\n\n`;
+  readme += `# Import CSV data\nask shov "Import this data" --file data.csv\n\`\`\`\n\n`;
+  
+  readme += `## 🔐 Authentication\n\n`;
+  readme += `All API requests require authentication using your API key:\n\n`;
+  readme += `\`\`\`bash\n`;
+  readme += `curl https://shov.com/api/data/${projectName}/users \\\n`;
+  readme += `  -H "Authorization: Bearer YOUR_API_KEY"\n`;
+  readme += `\`\`\`\n\n`;
+  readme += `Your API key is stored in \`.shov\` and \`.env\`\n\n`;
+  
+  readme += `## 📖 Learn More\n\n`;
+  readme += `- **Full Documentation:** https://shov.com/docs\n`;
+  readme += `- **API Reference:** https://shov.com/docs/api\n`;
+  readme += `- **CLI Help:** Run \`shov --help\` for all commands\n`;
+  readme += `- **Discord Community:** https://discord.gg/shov\n`;
+  readme += `- **GitHub:** https://github.com/shovlabs/shov\n\n`;
+  
+  readme += `## 🆘 Need Help?\n\n`;
+  readme += `- Run \`shov <command> --help\` for command-specific help\n`;
+  readme += `- Visit our docs at https://shov.com/docs\n`;
+  readme += `- Join our Discord for community support\n\n`;
+  
+  readme += `---\n\n`;
+  readme += `**Built with Shov** - The edge-first backend for modern apps 🚀\n`;
+  
+  return readme;
+}
+
 class ShovCLI {
   constructor(options = {}) {
     // Public CLI uses production by default
@@ -471,6 +606,8 @@ class ShovCLI {
             {
               codeDir: codeDir,
               language: language,
+              projectType: options.starter || 'blank',
+              frontend: options.frontend,
             }
           )
         }
@@ -611,6 +748,8 @@ class ShovCLI {
               {
                 codeDir: codeDir,
                 language: language,
+                projectType: options.starter || 'blank',
+                frontend: options.frontend,
               }
             )
           }
@@ -2426,6 +2565,9 @@ class ShovCLI {
   async downloadStarterFiles(projectName, apiKey, organizationSlug, options = {}) {
     const { default: ora } = await import('ora')
     const codeDir = options.codeDir || './shov'
+    const projectType = options.projectType || 'blank'
+    const hasFrontend = !!options.frontend
+    const frontendType = options.frontend
     
     try {
       const spinner = ora('Downloading starter files...').start()
@@ -2444,6 +2586,24 @@ class ShovCLI {
       if (!listResponse.ok) {
         spinner.warn('Could not download starter files')
         console.log(chalk.gray('  You can pull them later with: shov code pull'))
+        
+        // Still generate README even if API call failed
+        try {
+          // Create code directory if needed (unless it's current dir)
+          if (codeDir !== '.') {
+            if (!fs.existsSync(codeDir)) {
+              fs.mkdirSync(codeDir, { recursive: true })
+            }
+          }
+          
+          const readmeContent = generateReadmeForProject(projectName, projectType, hasFrontend, frontendType)
+          const readmePath = path.join(codeDir === '.' ? process.cwd() : codeDir, 'README.md')
+          fs.writeFileSync(readmePath, readmeContent, 'utf8')
+          console.log(chalk.gray('  ✅ Generated README.md with API reference'))
+        } catch (readmeError) {
+          console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${readmeError.message}`))
+        }
+        
         return
       }
       
@@ -2459,17 +2619,30 @@ class ShovCLI {
         content: func.code
       }))
       
-      if (files.length === 0) {
-        spinner.warn('No starter files to download')
-        return
-      }
-      
       // Create code directory if needed (unless it's current dir)
       if (codeDir !== '.') {
         if (!fs.existsSync(codeDir)) {
           fs.mkdirSync(codeDir, { recursive: true })
         }
       }
+      
+      // Generate and save README.md (even for blank projects with no files)
+      try {
+        const readmeContent = generateReadmeForProject(projectName, projectType, hasFrontend, frontendType)
+        const readmePath = path.join(codeDir === '.' ? process.cwd() : codeDir, 'README.md')
+        fs.writeFileSync(readmePath, readmeContent, 'utf8')
+        spinner.text = 'Generating README.md...'
+      } catch (error) {
+        console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${error.message}`))
+      }
+      
+      if (files.length === 0) {
+        spinner.succeed('Project initialized with README.md')
+        await this.showGitTipIfNeeded()
+        return
+      }
+      
+      spinner.text = 'Downloading starter files...'
       
       // Download each file
       let successCount = 0
@@ -2496,6 +2669,7 @@ class ShovCLI {
       }
       
       spinner.succeed(`Downloaded ${successCount} starter files to ${codeDir === '.' ? 'current directory' : codeDir}`)
+      console.log(chalk.gray(`  ✅ Generated README.md with API reference`))
       
       // Show git tip if not in a git repo
       await this.showGitTipIfNeeded()
@@ -2503,6 +2677,23 @@ class ShovCLI {
     } catch (error) {
       console.warn(chalk.yellow(`\n⚠️  Could not download starter files: ${error.message}`))
       console.log(chalk.gray('  You can pull them later with: shov code pull'))
+      
+      // Still try to generate README even if download failed
+      try {
+        // Create code directory if needed (unless it's current dir)
+        if (codeDir !== '.') {
+          if (!fs.existsSync(codeDir)) {
+            fs.mkdirSync(codeDir, { recursive: true })
+          }
+        }
+        
+        const readmeContent = generateReadmeForProject(projectName, projectType, hasFrontend, frontendType)
+        const readmePath = path.join(codeDir === '.' ? process.cwd() : codeDir, 'README.md')
+        fs.writeFileSync(readmePath, readmeContent, 'utf8')
+        console.log(chalk.gray(`  ✅ Generated README.md with API reference`))
+      } catch (readmeError) {
+        console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${readmeError.message}`))
+      }
     }
   }
   
@@ -3082,18 +3273,63 @@ class ShovCLI {
       let timestamp;
       if (options.from) {
         timestamp = this.parseTimestamp(options.from);
+        
+        // Handle "before deploy" - fetch actual last deployment time
+        if (timestamp === 'FETCH_LAST_DEPLOY') {
+          const spinner = ora('Fetching last deployment time...').start();
+          try {
+            const projectInfo = await this.apiCall(`/projects/${projectName}`, null, apiKey, options);
+            const lastDeploy = projectInfo.project?.last_deployment_at;
+            
+            if (lastDeploy) {
+              // Use 1 second before deployment to ensure we restore pre-deploy state
+              timestamp = new Date(lastDeploy).getTime() - 1000;
+              spinner.succeed(`Found last deployment: ${new Date(lastDeploy).toISOString()}`);
+              console.log(chalk.gray(`Restoring to: ${new Date(timestamp).toISOString()} (1 second before deploy)`));
+            } else {
+              spinner.warn('No deployment history found. Defaulting to 1 hour ago.');
+              timestamp = Date.now() - (60 * 60 * 1000);
+            }
+          } catch (error) {
+            spinner.fail('Could not fetch deployment history');
+            console.log(chalk.yellow('Defaulting to 1 hour ago'));
+            timestamp = Date.now() - (60 * 60 * 1000);
+          }
+        }
       } else {
         // Prompt for timestamp
         const response = await prompts({
           type: 'text',
           name: 'timestamp',
-          message: 'When do you want to restore from? (e.g., "2 hours ago", "2024-10-01 14:30")',
+          message: 'When do you want to restore from? (e.g., "2 hours ago", "before deploy", "2024-10-01 14:30")',
         });
         if (!response.timestamp) {
           console.log(chalk.yellow('Restore cancelled.'));
           return;
         }
         timestamp = this.parseTimestamp(response.timestamp);
+        
+        // Handle "before deploy" in prompt too
+        if (timestamp === 'FETCH_LAST_DEPLOY') {
+          const spinner = ora('Fetching last deployment time...').start();
+          try {
+            const projectInfo = await this.apiCall(`/projects/${projectName}`, null, apiKey, options);
+            const lastDeploy = projectInfo.project?.last_deployment_at;
+            
+            if (lastDeploy) {
+              timestamp = new Date(lastDeploy).getTime() - 1000;
+              spinner.succeed(`Found last deployment: ${new Date(lastDeploy).toISOString()}`);
+              console.log(chalk.gray(`Restoring to: ${new Date(timestamp).toISOString()} (1 second before deploy)`));
+            } else {
+              spinner.warn('No deployment history found. Defaulting to 1 hour ago.');
+              timestamp = Date.now() - (60 * 60 * 1000);
+            }
+          } catch (error) {
+            spinner.fail('Could not fetch deployment history');
+            console.log(chalk.yellow('Defaulting to 1 hour ago'));
+            timestamp = Date.now() - (60 * 60 * 1000);
+          }
+        }
       }
 
       // Determine what to restore
@@ -3512,12 +3748,10 @@ class ShovCLI {
     }
 
     // Natural language: before deploy / before last deploy
+    // This will be handled separately in the restore() method
+    // We need project context to fetch deployment history
     if (inputLower.includes('before deploy') || inputLower.includes('before last deploy')) {
-      // This requires fetching deployment history from the API
-      // For now, default to 1 hour ago (most common deploy window)
-      // TODO: Fetch actual last deployment timestamp from API
-      console.log(chalk.yellow('Note: "before deploy" defaults to 1 hour ago. Use specific timestamp for exact restore.'));
-      return now - (60 * 60 * 1000);
+      return 'FETCH_LAST_DEPLOY'; // Special marker
     }
 
     // Try parsing as date (handles things like "October 10, 2024")

@@ -19,9 +19,6 @@ program
   .option('--starter <type>', 'Deploy starter template: b2c or b2b (alternative to --b2c/--b2b flags)')
   .option('--backend-only', 'Backend only - exclude frontend (use with --b2b or --b2c)')
   .option('--nextjs', 'Use Next.js frontend (default for --b2b/--b2c)')
-  .option('--react', 'Use React frontend instead of Next.js')
-  .option('--vue', 'Use Vue frontend instead of Next.js')
-  .option('--svelte', 'Use Svelte frontend instead of Next.js')
   .option('--code-dir <path>', 'Directory for code files (default: ./shov, use "." for current dir)')
   .option('--lang <language>', 'Language for edge API files: js or ts (default: ts for starters, js for blank)')
   .option('--ts', 'Use TypeScript (default for --b2b/--b2c)')
@@ -50,14 +47,8 @@ program
         options.lang = 'js';
       }
       
-      // Convert framework flags to frontend option
-      if (options.react) {
-        options.frontend = 'react';
-      } else if (options.vue) {
-        options.frontend = 'vue';
-      } else if (options.svelte) {
-        options.frontend = 'svelte';
-      } else if (options.nextjs) {
+      // Convert framework flags to frontend option (Next.js only)
+      if (options.nextjs) {
         options.frontend = 'nextjs';
       }
       
