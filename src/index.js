@@ -342,16 +342,23 @@ class ShovCLI {
 
   async runInteractiveDemo() {
     const { default: ora } = await import('ora')
+    const config = await this.config.getConfig()
     
     try {
       // Create anonymous demo project
       let spinner = ora('Creating demo project...').start()
       
+      // Build headers - only include Authorization if we have a token
+      const headers = {
+        'Content-Type': 'application/json',
+      }
+      if (config.token) {
+        headers.Authorization = `Bearer ${config.token}`
+      }
+      
       const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           projectName: null, // Anonymous
         }),
@@ -549,12 +556,17 @@ class ShovCLI {
     const config = await this.config.getConfig()
 
     try {
+      // Build headers - only include Authorization if we have a token
+      const headers = {
+        'Content-Type': 'application/json',
+      }
+      if (config.token) {
+        headers.Authorization = `Bearer ${config.token}`
+      }
+      
       const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.token || ''}`,
-        },
+        headers,
         body: JSON.stringify({
           projectName: projectName || null,
           starter: options.starter || null,
