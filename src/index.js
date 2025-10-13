@@ -2745,7 +2745,7 @@ class ShovCLI {
     const framework = options.frontend // e.g., 'nextjs'
     if (!framework) return
     const lang = (options.lang === 'ts' || options.typescript) ? 'ts' : 'js'
-    const appDirName = `${framework}-app`
+    const appDirName = 'frontend'
     const appDir = path.join(process.cwd(), appDirName)
 
     const spinner = ora(`Downloading ${framework} frontend template...`).start()
