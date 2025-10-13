@@ -1254,9 +1254,10 @@ class ShovCLI {
     const spinner = ora(`Removing item "${itemId}" from collection "${collection}"...`).start();
     try {
       const { projectName, apiKey } = await this.getProjectConfig(options);
-      const body = { collection: collection, id: itemId };
+      const body = { collection: collection };
       
-      const data = await this.apiCall(`/data/${projectName}/remove`, body, apiKey, options);
+      // Pass item ID in URL path
+      const data = await this.apiCall(`/data/${projectName}/remove/${encodeURIComponent(itemId)}`, body, apiKey, options);
       
       if (data.success) {
         spinner.succeed(`Successfully removed item "${itemId}" from collection "${collection}".`);
@@ -1442,13 +1443,12 @@ class ShovCLI {
     const spinner = ora('Forgetting item...').start();
     try {
       const projectConfig = await this.getProjectConfig(options);
-      const response = await fetch(`${this.apiUrl}/api/data/${projectConfig.projectName}/forget`, {
+      const response = await fetch(`${this.apiUrl}/api/data/${projectConfig.projectName}/forget/${encodeURIComponent(idOrName)}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${projectConfig.apiKey}`
-        },
-        body: JSON.stringify({ name: idOrName })
+        }
       });
       const data = await response.json();
       if (response.ok) {
@@ -1480,8 +1480,8 @@ class ShovCLI {
         body.excludeFromVector = true;
       }
 
-      // Use POST for update, consistent with other data operations
-      const data = await this.apiCall(`/data/${projectName}/update`, { ...body, id: idOrName }, apiKey, options);
+      // Use POST for update with ID in URL path
+      const data = await this.apiCall(`/data/${projectName}/update/${encodeURIComponent(idOrName)}`, body, apiKey, options);
 
       if (data.success) {
         spinner.succeed(`Item "${idOrName}" in collection "${collection}" updated successfully.`);
@@ -1647,7 +1647,8 @@ class ShovCLI {
     try {
       const { projectName, apiKey } = await this.getProjectConfig(options);
       
-      const data = await this.apiCall(`/files/${projectName}`, { filename }, apiKey, options, 'DELETE');
+      // Use data endpoint with forget-file command and filename in URL path
+      const data = await this.apiCall(`/data/${projectName}/forget-file/${encodeURIComponent(filename)}`, {}, apiKey, options, 'DELETE');
       
       if (data.success) {
         spinner.succeed(`Successfully deleted ${data.count} file(s) named "${filename}".`);
@@ -3458,17 +3459,19 @@ class ShovCLI {
    * Parse natural language timestamp
    */
   parseTimestamp(input) {
+    const inputLower = input.toLowerCase().trim();
+    const now = Date.now();
+    
     // ISO timestamp
     if (input.match(/^\d{4}-\d{2}-\d{2}/)) {
       return new Date(input).getTime();
     }
 
-    // Relative time
+    // Relative time (numeric)
     const relativeMatch = input.match(/^(\d+)\s*(second|minute|hour|day|week|month)s?\s*ago$/i);
     if (relativeMatch) {
       const amount = parseInt(relativeMatch[1]);
       const unit = relativeMatch[2].toLowerCase();
-      const now = Date.now();
       
       const multipliers = {
         second: 1000,
@@ -3482,13 +3485,48 @@ class ShovCLI {
       return now - (amount * multipliers[unit]);
     }
 
-    // Try parsing as date
+    // Natural language: yesterday
+    if (inputLower === 'yesterday') {
+      return now - (24 * 60 * 60 * 1000);
+    }
+
+    // Natural language: last [day of week]
+    const lastDayMatch = inputLower.match(/^last\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/);
+    if (lastDayMatch) {
+      const targetDay = lastDayMatch[1];
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const today = new Date();
+      const currentDay = today.getDay();
+      const targetDayIndex = days.indexOf(targetDay);
+      
+      // Calculate days to go back
+      let daysAgo = currentDay - targetDayIndex;
+      if (daysAgo <= 0) {
+        daysAgo += 7; // Go to previous week
+      }
+      
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() - daysAgo);
+      targetDate.setHours(0, 0, 0, 0);
+      return targetDate.getTime();
+    }
+
+    // Natural language: before deploy / before last deploy
+    if (inputLower.includes('before deploy') || inputLower.includes('before last deploy')) {
+      // This requires fetching deployment history from the API
+      // For now, default to 1 hour ago (most common deploy window)
+      // TODO: Fetch actual last deployment timestamp from API
+      console.log(chalk.yellow('Note: "before deploy" defaults to 1 hour ago. Use specific timestamp for exact restore.'));
+      return now - (60 * 60 * 1000);
+    }
+
+    // Try parsing as date (handles things like "October 10, 2024")
     const parsed = new Date(input);
     if (!isNaN(parsed.getTime())) {
       return parsed.getTime();
     }
 
-    throw new Error(`Invalid timestamp: ${input}`);
+    throw new Error(`Invalid timestamp: ${input}. Try: "2 hours ago", "yesterday", "last tuesday", or "2024-10-01 14:30"`);
   }
 
   /**
