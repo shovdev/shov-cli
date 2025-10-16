@@ -30,7 +30,14 @@ program
     try {
       // Convert --b2c and --b2b flags to starter option
       if (options.b2c) {
-        options.starter = 'b2c';
+        console.log(chalk.yellow('\n🚧 B2C Starter Coming Soon!\n'))
+        console.log(chalk.gray('We\'re focused on making the B2B SaaS starter perfect first.'))
+        console.log(chalk.gray('The B2C consumer app starter will be available soon.\n'))
+        console.log(chalk.cyan('💡 Try our B2B starter instead:'))
+        console.log(chalk.white('   npx shov new --b2b\n'))
+        console.log(chalk.gray('Or create a blank backend and build from scratch:'))
+        console.log(chalk.white('   npx shov new\n'))
+        process.exit(0)
       } else if (options.b2b) {
         options.starter = 'b2b';
       }
