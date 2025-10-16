@@ -609,6 +609,18 @@ class ShovCLI {
           options.frontend
         )
         
+        // Write README if provided by backend (skip if --remote-only or --no-local)
+        if (!options.remoteOnly && !options.noLocal) {
+          if (data.readme) {
+            await this.writeReadme(data.readme)
+          } else {
+            // Fallback: generate README locally if backend didn't provide one
+            console.log(chalk.gray('  📚 Generating README locally...'))
+            const readmeContent = generateReadmeForProject(data.project.name, options.starter || 'blank', !!options.frontend, options.frontend)
+            await this.writeReadme(readmeContent)
+          }
+        }
+        
         // Download starter files locally unless --remote-only or --no-local
         if (!options.remoteOnly && !options.noLocal) {
           await this.downloadStarterFiles(
@@ -766,6 +778,18 @@ class ShovCLI {
             options.frontend
           )
           
+          // Write README if provided by backend (skip if --remote-only or --no-local)
+          if (!options.remoteOnly && !options.noLocal) {
+            if (verifyData.readme) {
+              await this.writeReadme(verifyData.readme)
+            } else {
+              // Fallback: generate README locally if backend didn't provide one
+              console.log(chalk.gray('  📚 Generating README locally...'))
+              const readmeContent = generateReadmeForProject(verifyData.project.name, options.starter || 'blank', !!options.frontend, options.frontend)
+              await this.writeReadme(readmeContent)
+            }
+          }
+          
           // Download starter files locally unless --remote-only or --no-local
           if (!options.remoteOnly && !options.noLocal) {
             await this.downloadStarterFiles(
@@ -913,6 +937,26 @@ class ShovCLI {
       }
     } catch (error) {
       // Silently fail - not critical
+    }
+  }
+
+  async writeReadme(readmeContent) {
+    try {
+      const readmePath = path.resolve(process.cwd(), 'README.md')
+      const shovReadmePath = path.resolve(process.cwd(), 'SHOV_README.md')
+      
+      // Check if README.md already exists
+      if (fs.existsSync(readmePath)) {
+        // If README.md exists, write to SHOV_README.md instead
+        fs.writeFileSync(shovReadmePath, readmeContent, 'utf-8')
+        console.log('📚 Created SHOV_README.md with complete API documentation (README.md already exists)')
+      } else {
+        // No existing README, create README.md
+        fs.writeFileSync(readmePath, readmeContent, 'utf-8')
+        console.log('📚 Created README.md with complete API documentation')
+      }
+    } catch (error) {
+      console.warn(`\n⚠️  Could not write README: ${error.message}`)
     }
   }
 
@@ -2609,55 +2653,47 @@ class ShovCLI {
     const projectType = options.projectType || 'blank'
     const hasFrontend = !!options.frontend
     const frontendType = options.frontend
+    const lang = options.language === 'typescript' ? 'ts' : 'ts' // Always use TypeScript for now
     
     try {
       const spinner = ora('Downloading starter files...').start()
       
-      // Get list of all code files using the code API
-      // Try the standard code API endpoint first
-      const listUrl = `${this.apiUrl}/api/code/${projectName}`
-      const listResponse = await fetch(listUrl, {
+      // Use the new backend templates API to get TypeScript source files
+      const templatesUrl = `${this.apiUrl}/api/templates/backend?starter=${projectType}&lang=${lang}`
+      const templatesResponse = await fetch(templatesUrl, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
       })
       
-      if (!listResponse.ok) {
+      if (!templatesResponse.ok) {
         spinner.warn('Could not download starter files')
         console.log(chalk.gray('  You can pull them later with: shov code pull'))
         
-        // Still generate README even if API call failed
-        try {
-          // Create code directory if needed (unless it's current dir)
-          if (codeDir !== '.') {
-            if (!fs.existsSync(codeDir)) {
-              fs.mkdirSync(codeDir, { recursive: true })
-            }
+        // Create code directory if needed (unless it's current dir)
+        if (codeDir !== '.') {
+          if (!fs.existsSync(codeDir)) {
+            fs.mkdirSync(codeDir, { recursive: true })
           }
-          
-          const readmeContent = generateReadmeForProject(projectName, projectType, hasFrontend, frontendType)
-          const readmePath = path.join(codeDir === '.' ? process.cwd() : codeDir, 'README.md')
-          fs.writeFileSync(readmePath, readmeContent, 'utf8')
-          console.log(chalk.gray('  ✅ Generated README.md with API reference'))
-        } catch (readmeError) {
-          console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${readmeError.message}`))
         }
         
         return
       }
       
-      const listData = await listResponse.json()
+      const templatesData = await templatesResponse.json()
       
-      // The /api/code/{project} endpoint returns { success: true, functions: [...] }
-      // Each function has { name, code, ... }
-      const functions = listData.functions || []
+      if (!templatesData.success || !templatesData.files) {
+        spinner.warn('Could not download starter files')
+        console.log(chalk.gray('  You can pull them later with: shov code pull'))
+        return
+      }
       
-      // Convert to file structure
-      const files = functions.map(func => ({
-        filePath: `routes/${func.name}.js`,
-        content: func.code
+      // Convert template files object to array format
+      // templatesData.files is { 'routes/auth/google.ts': '...code...', 'index.ts': '...code...' }
+      const files = Object.entries(templatesData.files).map(([filePath, content]) => ({
+        filePath,
+        content
       }))
       
       // Create code directory if needed (unless it's current dir)
@@ -2667,18 +2703,8 @@ class ShovCLI {
         }
       }
       
-      // Generate and save README.md (even for blank projects with no files)
-      try {
-        const readmeContent = generateReadmeForProject(projectName, projectType, hasFrontend, frontendType)
-        const readmePath = path.join(codeDir === '.' ? process.cwd() : codeDir, 'README.md')
-        fs.writeFileSync(readmePath, readmeContent, 'utf8')
-        spinner.text = 'Generating README.md...'
-      } catch (error) {
-        console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${error.message}`))
-      }
-      
       if (files.length === 0) {
-        spinner.succeed('Project initialized with README.md')
+        spinner.succeed('Project initialized')
         await this.showGitTipIfNeeded()
         return
       }
@@ -2710,7 +2736,6 @@ class ShovCLI {
       }
       
       spinner.succeed(`Downloaded ${successCount} starter files to ${codeDir === '.' ? 'current directory' : codeDir}`)
-      console.log(chalk.gray(`  ✅ Generated README.md with API reference`))
       
       // Show git tip if not in a git repo
       await this.showGitTipIfNeeded()
@@ -2719,21 +2744,11 @@ class ShovCLI {
       console.warn(chalk.yellow(`\n⚠️  Could not download starter files: ${error.message}`))
       console.log(chalk.gray('  You can pull them later with: shov code pull'))
       
-      // Still try to generate README even if download failed
-      try {
-        // Create code directory if needed (unless it's current dir)
-        if (codeDir !== '.') {
-          if (!fs.existsSync(codeDir)) {
-            fs.mkdirSync(codeDir, { recursive: true })
-          }
+      // Create code directory if needed (unless it's current dir)
+      if (codeDir !== '.') {
+        if (!fs.existsSync(codeDir)) {
+          fs.mkdirSync(codeDir, { recursive: true })
         }
-        
-        const readmeContent = generateReadmeForProject(projectName, projectType, hasFrontend, frontendType)
-        const readmePath = path.join(codeDir === '.' ? process.cwd() : codeDir, 'README.md')
-        fs.writeFileSync(readmePath, readmeContent, 'utf8')
-        console.log(chalk.gray(`  ✅ Generated README.md with API reference`))
-      } catch (readmeError) {
-        console.warn(chalk.yellow(`  ⚠️  Could not generate README.md: ${readmeError.message}`))
       }
     }
   }
@@ -2826,7 +2841,8 @@ class ShovCLI {
 
   async codePull(options = {}) {
     const { projectName, apiKey } = await this.getProjectConfig(options)
-    const outputDir = options.output || '.'
+    const config = await this.config.loadLocalConfig()
+    const outputDir = this.detectCodeDirectory(options.output || config.codeDir)
     
     try {
       console.log(chalk.blue('Fetching code files from project...'))
@@ -2906,8 +2922,10 @@ class ShovCLI {
     const prompts = require('prompts')
     const { projectName, apiKey } = await this.getProjectConfig(options)
     const config = await this.config.loadLocalConfig()
-    const codeDir = config.codeDir || './shov'
     const environment = options.env || 'production'
+    
+    // Smart directory detection: check for backend files in multiple locations
+    const codeDir = this.detectCodeDirectory(config.codeDir)
     
     try {
       // Check if code directory exists
@@ -2932,12 +2950,13 @@ class ShovCLI {
       spinner.stop()
       
       const remoteFiles = remoteResult.functions || []
-      const remoteMap = new Map(remoteFiles.map(f => [f.name, f]))
+      // Map by path (with extension) for proper comparison
+      const remoteMap = new Map(remoteFiles.map(f => [f.path || f.name, f]))
       
       // Calculate changes
       const toCreate = []
       const toUpdate = []
-      const toDelete = options.delete ? [] : null
+      const toDelete = [] // Always check for deletions (smart deployment)
       const unchanged = []
       
       for (const local of localFiles) {
@@ -2954,11 +2973,10 @@ class ShovCLI {
         }
       }
       
-      if (options.delete) {
-        for (const [name, remote] of remoteMap) {
-          if (!localFiles.find(l => l.name === name)) {
-            toDelete.push(remote)
-          }
+      // Always detect files that should be deleted (smart deployment)
+      for (const [remotePath, remote] of remoteMap) {
+        if (!localFiles.find(l => l.name === remotePath)) {
+          toDelete.push(remote)
         }
       }
       
@@ -2978,9 +2996,9 @@ class ShovCLI {
         console.log('')
       }
       
-      if (toDelete && toDelete.length > 0) {
+      if (toDelete.length > 0) {
         console.log(chalk.red(`  DELETE (${toDelete.length} file${toDelete.length > 1 ? 's' : ''})`))
-        toDelete.forEach(f => console.log(chalk.red(`    - ${f.name}`)))
+        toDelete.forEach(f => console.log(chalk.red(`    - ${f.path || f.name}`)))
         console.log('')
       }
       
@@ -2989,7 +3007,7 @@ class ShovCLI {
         console.log('')
       }
       
-      const totalChanges = toCreate.length + toUpdate.length + (toDelete ? toDelete.length : 0)
+      const totalChanges = toCreate.length + toUpdate.length + toDelete.length
       
       if (totalChanges === 0) {
         console.log(chalk.green('✅ No changes to deploy'))
@@ -3032,11 +3050,11 @@ class ShovCLI {
         deployed++
       }
       
-      if (toDelete) {
+      if (toDelete.length > 0) {
         for (const file of toDelete) {
-          await this.apiCall(`/code/${projectName}/${file.name}`, {
-            name: file.name
-          }, apiKey, options, 'DELETE')
+          // DELETE requests don't need a body - use path (with extension) not name
+          const filePath = file.path || file.name
+          await this.apiCall(`/code/${projectName}/${encodeURIComponent(filePath)}`, {}, apiKey, options, 'DELETE')
           deployed++
         }
       }
@@ -3054,7 +3072,7 @@ class ShovCLI {
           changes: totalChanges,
           created: toCreate.length,
           updated: toUpdate.length,
-          deleted: toDelete ? toDelete.length : 0,
+          deleted: toDelete.length,
           environment
         }, null, 2))
       }
@@ -3063,41 +3081,67 @@ class ShovCLI {
     }
   }
 
+  // Helper to detect backend code directory
+  detectCodeDirectory(configCodeDir = null) {
+    // If explicitly configured, use that
+    if (configCodeDir) {
+      return configCodeDir
+    }
+    
+    // Auto-detect backend directory
+    if (fs.existsSync('./shov') && fs.statSync('./shov').isDirectory()) {
+      // B2B/B2C starter structure: backend in ./shov subdirectory
+      return './shov'
+    } else if (fs.existsSync('./index.js') || fs.existsSync('./index.ts') || 
+               fs.existsSync('./routes') || fs.existsSync('./config.js') || 
+               fs.existsSync('./config.ts')) {
+      // Backend files in current directory
+      return '.'
+    }
+    
+    // Default fallback
+    return './shov'
+  }
+
   // Helper to scan local code files
   scanLocalCodeFiles(dir) {
     const crypto = require('crypto')
     const files = []
     
-    const supportedPatterns = [
-      'index.js', 'index.ts',
-      'config.js', 'config.ts',
-      'routes.js', 'routes.ts',
-      'routes/**/*',
-      'services/**/*',
-      'functions/**/*',
-      'middleware/**/*',
-      'utils/**/*',
-      'config/**/*'
-    ]
+    const supportedTopLevelDirs = ['routes', 'services', 'functions', 'middleware', 'utils', 'config']
+    const ignoredDirs = ['node_modules', '.git', 'dist', 'build', '.next', '.nuxt', 'coverage']
     
-    const scanDir = (currentDir, basePath = '') => {
+    const scanDir = (currentDir, basePath = '', isTopLevel = true) => {
       if (!fs.existsSync(currentDir)) return
       
       const entries = fs.readdirSync(currentDir, { withFileTypes: true })
       
       for (const entry of entries) {
+        // Skip ignored directories
+        if (ignoredDirs.includes(entry.name)) continue
+        
         const fullPath = path.join(currentDir, entry.name)
         const relativePath = basePath ? path.join(basePath, entry.name) : entry.name
         
         if (entry.isDirectory()) {
-          // Only scan supported subdirectories
-          if (['routes', 'services', 'functions', 'middleware', 'utils', 'config'].includes(entry.name)) {
-            scanDir(fullPath, relativePath)
+          if (isTopLevel) {
+            // At top level, only enter supported directories
+            if (supportedTopLevelDirs.includes(entry.name)) {
+              scanDir(fullPath, relativePath, false)
+            }
+          } else {
+            // Inside supported directories, recurse into all subdirectories
+            scanDir(fullPath, relativePath, false)
           }
         } else if (entry.isFile()) {
-          // Only include supported files
+          // Include .js and .ts files
           const ext = path.extname(entry.name)
-          if (['.js', '.ts'].includes(ext)) {
+          if (['.js', '.ts', '.jsx', '.tsx'].includes(ext)) {
+            // Skip at top level unless it's a root file like index.js
+            if (isTopLevel && !['index.js', 'index.ts', 'config.js', 'config.ts', 'routes.js', 'routes.ts'].includes(entry.name)) {
+              continue
+            }
+            
             const content = fs.readFileSync(fullPath, 'utf8')
             const checksum = crypto.createHash('md5').update(content).digest('hex')
             
@@ -3112,7 +3156,7 @@ class ShovCLI {
       }
     }
     
-    scanDir(dir)
+    scanDir(dir, '', true)
     return files
   }
 
@@ -3122,8 +3166,10 @@ class ShovCLI {
     const prompts = require('prompts')
     const { projectName, apiKey } = await this.getProjectConfig(options)
     const config = await this.config.loadLocalConfig()
-    const outputDir = options.output || config.codeDir || './shov'
     const environment = options.env || 'production'
+    
+    // Smart directory detection for output
+    const outputDir = this.detectCodeDirectory(options.output || config.codeDir)
     
     try {
       console.log(chalk.blue(`Pulling from ${environment} to ${outputDir}...`))
