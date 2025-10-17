@@ -19,7 +19,7 @@ program
   .option('--starter <type>', 'Deploy starter template: b2c or b2b (alternative to --b2c/--b2b flags)')
   .option('--backend-only', 'Backend only - exclude frontend (use with --b2b or --b2c)')
   .option('--nextjs', 'Use Next.js frontend (default for --b2b/--b2c)')
-  .option('--code-dir <path>', 'Directory for code files (default: ./shov, use "." for current dir)')
+  .option('--code-dir <path>', 'Directory for code files (default: ./api, use "." for current dir)')
   .option('--lang <language>', 'Language for edge API files: js or ts (default: ts for starters, js for blank)')
   .option('--ts', 'Use TypeScript (default for --b2b/--b2c)')
   .option('--js', 'Use JavaScript instead of TypeScript')

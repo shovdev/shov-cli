@@ -328,16 +328,9 @@ class ShovCLI {
   }
 
   async showWelcomeExperience() {
-    // Sleek, minimal header
-    console.log('\n')
-    console.log(chalk.bold.white('     SHOV'))
-    console.log(chalk.gray('     ────'))
-    console.log('\n')
-    
-    // Main Headlines with better spacing
-    console.log(chalk.bold.white('  Ship Production Backends in Seconds, Not Weeks\n'))
-    console.log(chalk.gray('  Deploy edge functions with native database, auth, files, and streaming.'))
-    console.log(chalk.gray('  Zero configuration, vector search, and sub-10ms responses globally.\n'))
+    console.log('')
+    console.log(chalk.bold.cyan('Shov') + chalk.gray(' – Full-stack apps in seconds'))
+    console.log('')
   }
 
   async runInteractiveDemo() {
@@ -532,15 +525,8 @@ class ShovCLI {
   async createProject(projectName, options) {
     const { default: ora } = await import('ora')
     
-    // Check if this is a first-time user
-    const isFirstTimeUser = await this.isFirstTimeUser()
-    
-    if (isFirstTimeUser) {
-      await this.showWelcomeExperience()
-      console.log(chalk.gray('\n🚀 Creating your project now...\n'))
-    } else {
-      console.log('\n🚀 Creating your project...\n')
-    }
+    // Always show consistent welcome
+    await this.showWelcomeExperience()
 
     // If email is provided, we need OTP verification
     if (options.email) {
@@ -548,11 +534,7 @@ class ShovCLI {
     }
 
     // Anonymous project creation (no email)
-    const spinner = ora(
-      projectName 
-        ? `Creating project '${projectName}' on Shov...`
-        : 'Creating project on Shov...'
-    ).start()
+    const spinner = ora('Creating project').start()
     const config = await this.config.getConfig()
 
     try {
@@ -572,6 +554,7 @@ class ShovCLI {
           starter: options.starter || null,
           lang: options.lang || null,
           frontend: options.frontend || null,
+          autoDeployFrontend: options.frontend ? true : false, // Auto-deploy if frontend requested
         }),
       })
 
@@ -587,10 +570,17 @@ class ShovCLI {
       const data = await response.json()
 
       if (data.success) {
-        spinner.succeed(`Project created successfully!`)
+        spinner.succeed('Project created')
+        
+        // Show key info immediately
+        console.log('')
+        console.log(chalk.gray('  Project:  ') + chalk.white(data.project.name))
+        console.log(chalk.gray('  API Key:  ') + chalk.yellow(data.project.apiKey))
+        console.log('')
         
         // Save enhanced config with new fields
-        const codeDir = options.codeDir || './shov'
+        // New unified structure: backend in /api, frontend in root
+        const codeDir = options.codeDir || './api'
         const language = options.typescript || options.lang === 'ts' ? 'typescript' : 'javascript'
         
         await this.config.saveLocalConfig({
@@ -609,13 +599,12 @@ class ShovCLI {
           options.frontend
         )
         
-        // Write README if provided by backend (skip if --remote-only or --no-local)
+        // Write README silently (skip if --remote-only or --no-local)
         if (!options.remoteOnly && !options.noLocal) {
           if (data.readme) {
             await this.writeReadme(data.readme)
           } else {
             // Fallback: generate README locally if backend didn't provide one
-            console.log(chalk.gray('  📚 Generating README locally...'))
             const readmeContent = generateReadmeForProject(data.project.name, options.starter || 'blank', !!options.frontend, options.frontend)
             await this.writeReadme(readmeContent)
           }
@@ -623,6 +612,14 @@ class ShovCLI {
         
         // Download starter files locally unless --remote-only or --no-local
         if (!options.remoteOnly && !options.noLocal) {
+          
+          // Step 1: Deploy database (instant)
+          let deploySpinner = ora('Setting up database').start()
+          await new Promise(resolve => setTimeout(resolve, 100))
+          deploySpinner.succeed('Database ready')
+          
+          // Step 2: Download backend files
+          deploySpinner = ora('Downloading backend').start()
           await this.downloadStarterFiles(
             data.project.name,
             data.project.apiKey,
@@ -634,41 +631,106 @@ class ShovCLI {
               frontend: options.frontend,
             }
           )
-
-        // If a frontend was requested (e.g., --b2b implies nextjs unless --backend-only), fetch it too
-        if (options.frontend) {
-          await this.downloadFrontendTemplate(
-            data.project.name,
-            data.project.apiKey,
-            data.project.url,
-            {
-              starter: options.starter || 'b2b',
-              frontend: options.frontend,
-              lang: options.lang,
-              typescript: options.typescript || options.lang === 'ts'
+          deploySpinner.text = 'Deploying backend'
+          
+          // Actually deploy the backend code
+          const localFiles = this.scanLocalCodeFiles(codeDir)
+          for (const file of localFiles) {
+            await this.apiCall(`/code/${data.project.name}`, {
+              functionName: file.filePath,
+              code: file.content,
+              createBackup: false
+            }, data.project.apiKey, options, 'POST')
+          }
+          
+          deploySpinner.succeed('Backend deployed')
+          
+          // Show backend URL immediately
+          console.log('')
+          console.log(chalk.gray('  Backend API: ') + chalk.cyan.bold(data.project.url + '/api'))
+          console.log('')
+          
+          // Step 3: If frontend requested
+          if (options.frontend) {
+            // Check if frontend was already deployed by backend
+            if (data.project.frontendDeployed) {
+              // Frontend already deployed remotely!
+              deploySpinner = ora('Frontend deployed remotely').succeed()
+              console.log(chalk.gray('  ✨ Instant deployment via Cloudflare API'))
+            } else {
+              // Fallback: Deploy locally (old method)
+              deploySpinner = ora('Downloading frontend').start()
+              await this.downloadFrontendTemplate(
+                data.project.name,
+                data.project.apiKey,
+                data.project.url,
+                {
+                  starter: options.starter || 'b2b',
+                  frontend: options.frontend,
+                  lang: options.lang,
+                  typescript: options.typescript || options.lang === 'ts'
+                }
+              )
+              deploySpinner.succeed('Frontend downloaded')
+              
+              // Install dependencies
+              deploySpinner = ora('Installing dependencies (this may take a minute)').start()
+              try {
+                const { execSync } = require('child_process')
+                execSync('npm install', { 
+                  stdio: 'pipe',
+                  cwd: process.cwd()
+                })
+                deploySpinner.succeed('Dependencies installed')
+              } catch (error) {
+                deploySpinner.fail('Dependency install failed')
+                console.log(chalk.yellow('\n  ⚠️  Run npm install manually before deploying frontend'))
+                console.log(chalk.gray(`     Error: ${error.message}\n`))
+                
+                // Skip frontend deploy if npm install failed
+                console.log(chalk.bold('\n✅ Backend is LIVE!\n'))
+                console.log(chalk.gray('  Backend API: ') + chalk.cyan.bold(data.project.url + '/api'))
+                console.log(chalk.gray('  Frontend:    ') + chalk.yellow('Run npm install && shov deploy'))
+                console.log('')
+                return
+              }
+              
+              // Deploy frontend
+              deploySpinner = ora('Deploying frontend (building with OpenNext)').start()
+              try {
+                await this.deployFrontend(data.project.name, data.project.apiKey, options)
+                deploySpinner.succeed('Frontend deployed')
+              } catch (error) {
+                deploySpinner.fail('Frontend deployment failed')
+                console.log(chalk.yellow('\n  ⚠️  Frontend build or deployment failed'))
+                console.log(chalk.gray(`     Error: ${error.message}`))
+                console.log(chalk.gray('     Run: shov deploy\n'))
+                
+                // Show backend success even if frontend failed
+                console.log(chalk.bold('\n✅ Backend is LIVE!\n'))
+                console.log(chalk.gray('  Backend API: ') + chalk.cyan.bold(data.project.url + '/api'))
+                console.log(chalk.gray('  Frontend:    ') + chalk.yellow('Run shov deploy to retry'))
+                console.log('')
+                return
+              }
             }
-          )
-        }
+            
+            // Optionally download source files for local dev (background)
+            if (!options.remoteOnly && data.project.frontendDeployed) {
+              console.log(chalk.gray('\n  📝 To edit locally:'))
+              console.log(chalk.gray('     Run: npm install && npm run dev'))
+              console.log(chalk.gray('     Deploy changes: shov deploy\n'))
+            }
+          }
         }
         
-        if (isFirstTimeUser) {
-          // Show animated project details with URL hero'd
-          await this.showProjectDetails(
-            data.project.name, 
-            data.project.apiKey, 
-            data.project.url
-          )
-          
-          // Show next steps with examples (pass URL and codeDir for final call-to-action)
-          await this.showFirstTimeExamples(data.project.url, codeDir)
-        } else {
-          // Minimal output for returning users but still show URL
-          console.log('\n')
-          console.log(chalk.gray('  Shov backend URL: ') + chalk.cyan(data.project.url))
-          console.log(chalk.gray('  API Key:     ') + chalk.yellow(data.project.apiKey))
-          console.log(chalk.gray('  Config saved to .shov and .env'))
-          console.log('\n')
+        // Success output
+        console.log(chalk.bold('\n✅ Your full-stack app is LIVE!\n'))
+        console.log(chalk.gray('  App URL:     ') + chalk.cyan.bold(data.project.url))
+        if (options.frontend) {
+          console.log(chalk.gray('  Backend API: ') + chalk.cyan(data.project.url + '/api'))
         }
+        console.log('')
       } else {
         spinner.fail(`❌ Project creation failed: ${data.error || 'Unknown error'}`)
       }
@@ -2649,7 +2711,7 @@ class ShovCLI {
   // Download starter files after project creation
   async downloadStarterFiles(projectName, apiKey, organizationSlug, options = {}) {
     const { default: ora } = await import('ora')
-    const codeDir = options.codeDir || './shov'
+    const codeDir = options.codeDir || './api'
     const projectType = options.projectType || 'blank'
     const hasFrontend = !!options.frontend
     const frontendType = options.frontend
@@ -2735,10 +2797,8 @@ class ShovCLI {
         }
       }
       
-      spinner.succeed(`Downloaded ${successCount} starter files to ${codeDir === '.' ? 'current directory' : codeDir}`)
-      
-      // Show git tip if not in a git repo
-      await this.showGitTipIfNeeded()
+      spinner.stop()
+      // Silently complete - parent handles messaging
       
     } catch (error) {
       console.warn(chalk.yellow(`\n⚠️  Could not download starter files: ${error.message}`))
@@ -2760,7 +2820,8 @@ class ShovCLI {
     const framework = options.frontend // e.g., 'nextjs'
     if (!framework) return
     const lang = (options.lang === 'ts' || options.typescript) ? 'ts' : 'js'
-    const appDirName = 'frontend'
+    // New unified structure: frontend files in root directory
+    const appDirName = '.'
     const appDir = path.join(process.cwd(), appDirName)
 
     const spinner = ora(`Downloading ${framework} frontend template...`).start()
@@ -2788,6 +2849,7 @@ class ShovCLI {
 
       // Write files
       let written = 0
+      const runtimeUrl = backendUrl || `https://${projectName}.shov.dev`
       for (const [relPath, content] of Object.entries(files)) {
         const safePath = relPath.startsWith('/') ? relPath.slice(1) : relPath
         const fullPath = path.join(appDir, safePath)
@@ -2795,7 +2857,16 @@ class ShovCLI {
         if (!fs.existsSync(fileDir)) {
           fs.mkdirSync(fileDir, { recursive: true })
         }
-        fs.writeFileSync(fullPath, content || '', 'utf8')
+        
+        // Replace placeholders in wrangler.jsonc
+        let fileContent = content || ''
+        if (safePath === 'wrangler.jsonc') {
+          fileContent = fileContent
+            .replace(/PROJECT_NAME/g, projectName)
+            .replace(/PROJECT_API_URL/g, runtimeUrl)
+        }
+        
+        fs.writeFileSync(fullPath, fileContent, 'utf8')
         written++
       }
 
@@ -2817,9 +2888,8 @@ class ShovCLI {
         console.warn(chalk.yellow(`  ⚠️  Could not create frontend .env.local: ${envError.message}`))
       }
 
-      spinner.succeed(`Downloaded ${written} ${framework} files to ./${appDirName}`)
-      console.log(chalk.gray('  Open the frontend:'))
-      console.log(chalk.gray(`   cd ${appDirName} && npm install && npm run dev`))
+      spinner.stop()
+      // Silently complete - parent handles messaging
     } catch (error) {
       spinner.warn(`Could not download ${framework} template: ${error.message}`)
     }
@@ -2915,10 +2985,64 @@ class ShovCLI {
     }
   }
 
+  // Deploy Frontend - Build and deploy Next.js frontend
+  async deployFrontend(projectName, apiKey, options = {}) {
+    const { execSync } = require('child_process')
+    
+    // Step 1: Build with OpenNext (silent - parent handles spinner)
+    try {
+      execSync('npx --yes @opennextjs/cloudflare@latest build', {
+        stdio: 'pipe',
+        cwd: process.cwd()
+      })
+    } catch (error) {
+      // Extract stderr if available for better error message
+      const stderr = error.stderr?.toString() || error.stdout?.toString() || ''
+      const errorMsg = stderr.split('\n').filter(line => 
+        line.includes('Error') || line.includes('error') || line.includes('failed')
+      ).join(' ').trim() || 'Build failed'
+      
+      throw new Error(errorMsg.substring(0, 200)) // Limit error length
+    }
+    
+    // Step 2: Deploy to Cloudflare Worker
+    try {
+      const workerName = `shov-fe-${projectName}`
+      execSync(
+        `npx --yes @opennextjs/cloudflare@latest deploy --worker-name=${workerName}`,
+        {
+          stdio: 'pipe',
+          cwd: process.cwd(),
+          encoding: 'utf-8'
+        }
+      )
+    } catch (error) {
+      const stderr = error.stderr?.toString() || error.stdout?.toString() || ''
+      const errorMsg = stderr.split('\n').filter(line => 
+        line.includes('Error') || line.includes('error') || line.includes('failed')
+      ).join(' ').trim() || 'Deployment failed'
+      
+      throw new Error(errorMsg.substring(0, 200))
+    }
+    
+    // Step 3: Update project metadata
+    try {
+      await this.apiCall(`/projects/${projectName}/frontend`, {
+        has_frontend: true,
+        frontend_framework: 'nextjs',
+        frontend_worker: `shov-fe-${projectName}`,
+        last_frontend_deploy_at: new Date().toISOString()
+      }, apiKey, options, 'PATCH')
+    } catch (error) {
+      // Non-critical - frontend is still deployed
+      console.warn(chalk.gray(`  Note: Metadata update failed - ${error.message}`))
+    }
+  }
+
   // Deploy Command - Smart deployment with automatic backups
   async deployCode(options = {}) {
     const crypto = require('crypto')
-    const { default: ora } = await import('ora')
+    const { default: ora} = await import('ora')
     const prompts = require('prompts')
     const { projectName, apiKey } = await this.getProjectConfig(options)
     const config = await this.config.loadLocalConfig()
@@ -2933,7 +3057,19 @@ class ShovCLI {
         throw new Error(`Code directory not found: ${codeDir}. Run 'shov new' to create it.`)
       }
       
-      console.log(chalk.blue(`Deploying from ${codeDir} to ${environment}...`))
+      // Check for frontend (Next.js app directory)
+      const hasFrontend = fs.existsSync(path.join(process.cwd(), 'app'))
+      
+      if (hasFrontend) {
+        console.log(chalk.blue('🎨 Detected frontend + backend project'))
+        console.log('')
+        
+        // Deploy both frontend and backend
+        await this.deployFrontend(projectName, apiKey, options)
+        console.log('')
+      }
+      
+      console.log(chalk.blue(`📦 Deploying backend from ${codeDir} to ${environment}...`))
       console.log('')
       
       // Scan local files
@@ -3088,9 +3224,12 @@ class ShovCLI {
       return configCodeDir
     }
     
-    // Auto-detect backend directory
-    if (fs.existsSync('./shov') && fs.statSync('./shov').isDirectory()) {
-      // B2B/B2C starter structure: backend in ./shov subdirectory
+    // Auto-detect backend directory (new unified structure first)
+    if (fs.existsSync('./api') && fs.statSync('./api').isDirectory()) {
+      // New unified structure: backend in ./api subdirectory
+      return './api'
+    } else if (fs.existsSync('./shov') && fs.statSync('./shov').isDirectory()) {
+      // Legacy B2B/B2C starter structure: backend in ./shov subdirectory
       return './shov'
     } else if (fs.existsSync('./index.js') || fs.existsSync('./index.ts') || 
                fs.existsSync('./routes') || fs.existsSync('./config.js') || 
@@ -3099,8 +3238,8 @@ class ShovCLI {
       return '.'
     }
     
-    // Default fallback
-    return './shov'
+    // Default fallback (new unified structure)
+    return './api'
   }
 
   // Helper to scan local code files
