@@ -618,32 +618,8 @@ class ShovCLI {
           await new Promise(resolve => setTimeout(resolve, 100))
           deploySpinner.succeed('Database ready')
           
-          // Step 2: Download backend files
-          deploySpinner = ora('Downloading backend').start()
-          await this.downloadStarterFiles(
-            data.project.name,
-            data.project.apiKey,
-            data.project.organizationSlug,
-            {
-              codeDir: codeDir,
-              language: language,
-              projectType: options.starter || 'blank',
-              frontend: options.frontend,
-            }
-          )
-          deploySpinner.text = 'Deploying backend'
-          
-          // Actually deploy the backend code
-          const localFiles = this.scanLocalCodeFiles(codeDir)
-          for (const file of localFiles) {
-            await this.apiCall(`/code/${data.project.name}`, {
-              functionName: file.filePath,
-              code: file.content,
-              createBackup: false
-            }, data.project.apiKey, options, 'POST')
-          }
-          
-          deploySpinner.succeed('Backend deployed')
+          // Step 2: Backend is already deployed by the server
+          deploySpinner = ora('Backend deployed').succeed()
           
           // Show backend URL immediately
           console.log('')
@@ -852,34 +828,7 @@ class ShovCLI {
             }
           }
           
-          // Download starter files locally unless --remote-only or --no-local
-          if (!options.remoteOnly && !options.noLocal) {
-            await this.downloadStarterFiles(
-              verifyData.project.name,
-              verifyData.project.apiKey,
-              verifyData.project.organizationSlug,
-              {
-                codeDir: codeDir,
-                language: language,
-                projectType: options.starter || 'blank',
-                frontend: options.frontend,
-              }
-            )
-
-          if (options.frontend) {
-            await this.downloadFrontendTemplate(
-              verifyData.project.name,
-              verifyData.project.apiKey,
-              verifyData.project.url,
-              {
-                starter: options.starter || 'b2b',
-                frontend: options.frontend,
-                lang: options.lang,
-                typescript: options.typescript || options.lang === 'ts'
-              }
-            )
-          }
-          }
+          // Backend is already deployed by server - nothing to download locally
           
           if (isFirstTimeUser) {
             // Show animated project details with URL hero'd
