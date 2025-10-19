@@ -2997,32 +2997,30 @@ class ShovCLI {
     const config = await this.config.loadLocalConfig()
     const environment = options.env || 'production'
     
-    // Smart directory detection: check for backend files in multiple locations
-    const codeDir = this.detectCodeDirectory(config.codeDir)
+    // For unified full-stack projects, scan entire project root
+    // For legacy backend-only projects, scan just the backend dir
+    const hasApp = fs.existsSync(path.join(process.cwd(), 'app'))
+    const hasApi = fs.existsSync(path.join(process.cwd(), 'api'))
+    const hasComponents = fs.existsSync(path.join(process.cwd(), 'components'))
+    const isFullStack = hasApp || (hasApi && hasComponents)
+    
+    const scanDir = isFullStack ? process.cwd() : this.detectCodeDirectory(config.codeDir)
     
     try {
-      // Check if code directory exists
-      if (!fs.existsSync(codeDir)) {
-        throw new Error(`Code directory not found: ${codeDir}. Run 'shov new' to create it.`)
+      // Check if directory exists
+      if (!fs.existsSync(scanDir)) {
+        throw new Error(`Directory not found: ${scanDir}. Run 'shov new' to create it.`)
       }
       
-      // Check for frontend (Next.js app directory)
-      const hasFrontend = fs.existsSync(path.join(process.cwd(), 'app'))
-      
-      if (hasFrontend) {
-        console.log(chalk.blue('🎨 Detected frontend + backend project'))
-        console.log('')
-        
-        // Deploy both frontend and backend
-        await this.deployFrontend(projectName, apiKey, options)
-        console.log('')
+      if (isFullStack) {
+        console.log(chalk.blue('🚀 Deploying full-stack project (frontend + backend)'))
+      } else {
+        console.log(chalk.blue(`📦 Deploying backend from ${scanDir} to ${environment}...`))
       }
-      
-      console.log(chalk.blue(`📦 Deploying backend from ${codeDir} to ${environment}...`))
       console.log('')
       
-      // Scan local files
-      const localFiles = this.scanLocalCodeFiles(codeDir)
+      // Scan local files (entire project for full-stack, just backend for legacy)
+      const localFiles = this.scanLocalCodeFiles(scanDir)
       
       if (localFiles.length === 0) {
         console.log(chalk.yellow('No code files found in local directory.'))
@@ -3196,55 +3194,69 @@ class ShovCLI {
     const crypto = require('crypto')
     const files = []
     
-    const supportedTopLevelDirs = ['routes', 'services', 'functions', 'middleware', 'utils', 'config']
-    const ignoredDirs = ['node_modules', '.git', 'dist', 'build', '.next', '.nuxt', 'coverage']
+    // Directories and files to ignore
+    const ignoredDirs = ['node_modules', '.git', 'dist', 'build', '.next', '.nuxt', 'coverage', '.shov']
+    const ignoredFiles = ['.DS_Store', 'Thumbs.db', '.env.local', '.env.*.local']
     
-    const scanDir = (currentDir, basePath = '', isTopLevel = true) => {
+    const scanDir = (currentDir, basePath = '') => {
       if (!fs.existsSync(currentDir)) return
       
       const entries = fs.readdirSync(currentDir, { withFileTypes: true })
       
       for (const entry of entries) {
-        // Skip ignored directories
+        // Skip ignored directories and files
         if (ignoredDirs.includes(entry.name)) continue
+        if (ignoredFiles.includes(entry.name)) continue
         
         const fullPath = path.join(currentDir, entry.name)
         const relativePath = basePath ? path.join(basePath, entry.name) : entry.name
         
         if (entry.isDirectory()) {
-          if (isTopLevel) {
-            // At top level, only enter supported directories
-            if (supportedTopLevelDirs.includes(entry.name)) {
-              scanDir(fullPath, relativePath, false)
-            }
-          } else {
-            // Inside supported directories, recurse into all subdirectories
-            scanDir(fullPath, relativePath, false)
-          }
+          // Recurse into all directories (except ignored)
+          scanDir(fullPath, relativePath)
         } else if (entry.isFile()) {
-          // Include .js and .ts files
-          const ext = path.extname(entry.name)
-          if (['.js', '.ts', '.jsx', '.tsx'].includes(ext)) {
-            // Skip at top level unless it's a root file like index.js
-            if (isTopLevel && !['index.js', 'index.ts', 'config.js', 'config.ts', 'routes.js', 'routes.ts'].includes(entry.name)) {
-              continue
+          // Include all source files: code, config, assets
+          const ext = path.extname(entry.name).toLowerCase()
+          const isCodeFile = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'].includes(ext)
+          const isConfigFile = ['.json', '.yaml', '.yml', '.toml', '.config.js', '.config.ts'].includes(ext) || 
+                               ['package.json', 'tsconfig.json', 'next.config.js', 'tailwind.config.js'].includes(entry.name)
+          const isStyleFile = ['.css', '.scss', '.sass', '.less'].includes(ext)
+          const isAssetFile = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot'].includes(ext)
+          const isTextFile = ['.md', '.txt', '.html'].includes(ext)
+          
+          if (isCodeFile || isConfigFile || isStyleFile || isAssetFile || isTextFile) {
+            try {
+              const content = fs.readFileSync(fullPath, 'utf8')
+              const checksum = crypto.createHash('md5').update(content).digest('hex')
+              
+              files.push({
+                name: relativePath.replace(/\\/g, '/'), // Normalize path separators
+                path: fullPath,
+                checksum,
+                size: content.length,
+                type: isCodeFile ? 'code' : isConfigFile ? 'config' : isStyleFile ? 'style' : isAssetFile ? 'asset' : 'text'
+              })
+            } catch (error) {
+              // Skip binary files that can't be read as UTF-8
+              if (isAssetFile) {
+                // For binary assets, just store metadata
+                const stats = fs.statSync(fullPath)
+                files.push({
+                  name: relativePath.replace(/\\/g, '/'),
+                  path: fullPath,
+                  checksum: null,
+                  size: stats.size,
+                  type: 'asset',
+                  binary: true
+                })
+              }
             }
-            
-            const content = fs.readFileSync(fullPath, 'utf8')
-            const checksum = crypto.createHash('md5').update(content).digest('hex')
-            
-            files.push({
-              name: relativePath.replace(/\\/g, '/'), // Normalize path separators
-              path: fullPath,
-              checksum,
-              size: content.length
-            })
           }
         }
       }
     }
     
-    scanDir(dir, '', true)
+    scanDir(dir, '')
     return files
   }
 
