@@ -152,6 +152,70 @@ class ShovCLI {
     this.config = new ShovConfig()
   }
 
+  /**
+   * Display final success message for project creation
+   */
+  showSuccessMessage(projectData, options = {}) {
+    const { 
+      projectName, 
+      orgSlug, 
+      apiKey, 
+      url, 
+      hasFrontend = false,
+      isAnonymous = false 
+    } = projectData;
+    
+    const language = options.lang === 'ts' || options.typescript ? 'TypeScript' : 'JavaScript';
+    const framework = options.frontend === 'nextjs' ? 'Next.js' : options.frontend || 'React';
+    
+    const divider = '━'.repeat(70);
+    
+    console.log('\n' + chalk.gray(divider));
+    console.log('');
+    console.log(chalk.bold('🎉 Your full-stack app is LIVE on the global edge!'));
+    console.log('');
+    console.log(chalk.gray('   🌐 App URL: ') + chalk.cyan.bold(url));
+    console.log('');
+    console.log(chalk.gray('   Project:    ') + chalk.white(projectName));
+    console.log(chalk.gray('   Org:        ') + chalk.white(orgSlug));
+    console.log(chalk.gray('   API Key:    ') + chalk.yellow(apiKey));
+    console.log(chalk.gray('   Backend:    ') + chalk.white('/api'));
+    console.log('');
+    
+    if (hasFrontend) {
+      console.log(chalk.gray('   Frontend:   ') + chalk.white(`./app (${framework})`));
+      console.log(chalk.gray('   Backend:    ') + chalk.white(`./api (${language})`));
+      console.log('');
+    }
+    
+    console.log(chalk.gray(divider));
+    console.log('');
+    console.log(chalk.bold('📝 Next Steps:'));
+    console.log('');
+    console.log(chalk.gray('   • Open your app:     ') + chalk.cyan(url));
+    
+    if (hasFrontend) {
+      console.log(chalk.gray('   • Edit locally:      ') + chalk.white('Edit files in ./app or ./api'));
+      console.log(chalk.gray('   • Deploy changes:    ') + chalk.white('shov deploy'));
+    }
+    
+    console.log(chalk.gray('   • Read the guide:    ') + chalk.white('cat README.md'));
+    console.log('');
+    console.log(chalk.gray('   💡 You can also edit online at ') + chalk.cyan('shov.com/code'));
+    
+    if (isAnonymous) {
+      console.log('');
+      console.log(chalk.yellow('⏰ Claim this project: ') + chalk.gray('You have 24 hours to claim this project'));
+      console.log('');
+      console.log(chalk.gray('   • Via CLI:  ') + chalk.white('shov claim you@example.com'));
+      console.log(chalk.gray('   • Online:   ') + chalk.cyan('shov.com/claim'));
+    }
+    
+    console.log('');
+    console.log(chalk.gray(divider));
+    console.log('');
+  }
+
   // Helper method to handle API errors with better messaging
   handleApiError(response, data, spinner, operation = 'Operation') {
     if (response.status === 429) {
@@ -620,10 +684,6 @@ class ShovCLI {
           
           // Step 2: Backend is already deployed by the server
           deploySpinner = ora('Backend deployed').succeed()
-          
-          // Show backend URL immediately
-          console.log('')
-          console.log(chalk.gray('  Backend API: ') + chalk.cyan.bold(data.project.url + '/api'))
           console.log('')
           
           // Step 3: If frontend requested
@@ -631,8 +691,8 @@ class ShovCLI {
             // Check if frontend was already deployed by backend
             if (data.project.frontendDeployed) {
               // Frontend already deployed remotely!
-              deploySpinner = ora('Frontend deployed remotely').succeed()
-              console.log(chalk.gray('  ✨ Instant deployment via Cloudflare API'))
+              deploySpinner = ora('Frontend deployed').succeed()
+              console.log(chalk.gray('  ✨ Instantly deployed to the global edge'))
             } else {
               // Fallback: Deploy locally (old method)
               deploySpinner = ora('Downloading frontend').start()
@@ -691,22 +751,57 @@ class ShovCLI {
               }
             }
             
-            // Optionally download source files for local dev (background)
-            if (!options.remoteOnly && data.project.frontendDeployed) {
-              console.log(chalk.gray('\n  📝 To edit locally:'))
-              console.log(chalk.gray('     Run: npm install && npm run dev'))
-              console.log(chalk.gray('     Deploy changes: shov deploy\n'))
+            // Download source files for local dev (always for B2B/B2C)
+            if (data.project.frontendDeployed) {
+              deploySpinner = ora('Downloading source files for local editing').start()
+              try {
+                // Download frontend template
+                await this.downloadFrontendTemplate(
+                  data.project.name,
+                  data.project.apiKey,
+                  data.project.url,
+                  {
+                    starter: options.starter || 'b2b',
+                    frontend: options.frontend,
+                    lang: options.lang,
+                    typescript: options.typescript || options.lang === 'ts'
+                  }
+                )
+                
+                // Download backend files
+                await this.downloadStarterFiles(
+                  data.project.name,
+                  data.project.apiKey,
+                  data.organization?.slug || data.project.organizationSlug,
+                  {
+                    projectType: options.starter || 'b2b',
+                    frontend: options.frontend,
+                    codeDir: './api'
+                  }
+                )
+                
+                deploySpinner.succeed('Source files downloaded')
+                console.log(chalk.gray('\n  📝 To edit locally:'))
+                console.log(chalk.gray('     Run: npm install && npm run dev'))
+                console.log(chalk.gray('     Deploy changes: shov deploy\n'))
+              } catch (error) {
+                deploySpinner.warn('Source file download failed')
+                console.log(chalk.yellow(`  ⚠️  ${error.message}`))
+                console.log(chalk.gray('  📝 To download manually: shov pull\n'))
+              }
             }
           }
         }
         
         // Success output
-        console.log(chalk.bold('\n✅ Your full-stack app is LIVE!\n'))
-        console.log(chalk.gray('  App URL:     ') + chalk.cyan.bold(data.project.url))
-        if (options.frontend) {
-          console.log(chalk.gray('  Backend API: ') + chalk.cyan(data.project.url + '/api'))
-        }
-        console.log('')
+        this.showSuccessMessage({
+          projectName: data.project.name,
+          orgSlug: data.project.organizationSlug,
+          apiKey: data.project.apiKey,
+          url: data.project.url,
+          hasFrontend: !!options.frontend,
+          isAnonymous: true
+        }, options)
       } else {
         spinner.fail(`❌ Project creation failed: ${data.error || 'Unknown error'}`)
       }
@@ -834,18 +929,56 @@ class ShovCLI {
           const frontendDeployed = verifyData.project.frontendDeployed;
           
           // Show consistent output regardless of first-time or returning user
-          console.log('\n')
-          if (frontendDeployed && hasFrontend) {
-            console.log(chalk.bold('✅ Your full-stack app is LIVE!\n'))
-            console.log(chalk.gray('  App URL:     ') + chalk.cyan.bold(verifyData.project.url))
-            console.log(chalk.gray('  Backend API: ') + chalk.cyan(verifyData.project.url + '/api'))
-          } else {
-            console.log(chalk.bold('✅ Backend is LIVE!\n'))
-            console.log(chalk.gray('  Backend API: ') + chalk.cyan.bold(verifyData.project.url))
+          this.showSuccessMessage({
+            projectName: verifyData.project.name,
+            orgSlug: verifyData.project.organizationSlug,
+            apiKey: verifyData.project.apiKey,
+            url: verifyData.project.url,
+            hasFrontend: frontendDeployed && hasFrontend,
+            isAnonymous: false
+          }, options)
+          
+          // Download source files for local development
+          if (hasFrontend && frontendDeployed) {
+            spinner = ora('Downloading source files for local editing').start()
+            try {
+              // Download frontend template
+              await this.downloadFrontendTemplate(
+                verifyData.project.name,
+                verifyData.project.apiKey,
+                verifyData.project.url,
+                {
+                  starter: options.starter || 'b2b',
+                  frontend: options.frontend || 'nextjs',
+                  lang: options.lang,
+                  typescript: options.typescript || options.lang === 'ts'
+                }
+              )
+              
+              // Download backend files
+              await this.downloadStarterFiles(
+                verifyData.project.name,
+                verifyData.project.apiKey,
+                verifyData.project.organizationSlug,
+                {
+                  projectType: options.starter || 'b2b',
+                  frontend: options.frontend || 'nextjs',
+                  codeDir: './api'
+                }
+              )
+              
+              spinner.succeed('Source files downloaded')
+              console.log(chalk.gray('  📝 To edit locally:'))
+              console.log(chalk.gray('     Run: npm install && npm run dev'))
+              console.log(chalk.gray('     Deploy changes: shov deploy'))
+              console.log('\n')
+            } catch (error) {
+              spinner.warn('Source file download failed')
+              console.log(chalk.yellow(`  ⚠️  ${error.message}`))
+              console.log(chalk.gray('  📝 To download manually: shov pull'))
+              console.log('\n')
+            }
           }
-          console.log(chalk.gray('  API Key:     ') + chalk.yellow(verifyData.project.apiKey))
-          console.log(chalk.gray('  Config saved to .shov and .env'))
-          console.log('\n')
         } else {
           spinner.fail(`❌ Verification failed: ${verifyData.error || 'Unknown error'}`)
         }
@@ -875,32 +1008,24 @@ class ShovCLI {
   }
 
   addToEnv(apiKey, projectName, organizationSlug, url, frontend) {
-    // Build env vars with new fields
+    // Build env vars with all needed fields
     let envVars = `\nSHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n` +
       (organizationSlug ? `SHOV_ORG=${organizationSlug}\n` : '') +
       (url ? `SHOV_URL=${url}\n` : '')
     
     // Add frontend-specific env vars (Next.js needs NEXT_PUBLIC_ prefix)
-    if (frontend === 'nextjs') {
+    // These are added to .env so there's only one file to manage
+    if (frontend === 'nextjs' || frontend) {
+      envVars += `NEXT_PUBLIC_APP_URL=${url}\n`
       envVars += `NEXT_PUBLIC_SHOV_URL=${url}\n`
       envVars += `NEXT_PUBLIC_SHOV_API_KEY=${apiKey}\n`
-    } else if (frontend) {
-      // For React/Vue/Svelte, use standard prefixes
-      envVars += `VITE_SHOV_URL=${url}\n`
-      envVars += `VITE_SHOV_API_KEY=${apiKey}\n`
     }
     
-    const envLocalPath = path.resolve(process.cwd(), '.env.local')
+    // Always use .env (not .env.local) for simplicity
     const envPath = path.resolve(process.cwd(), '.env')
 
     try {
-      if (fs.existsSync(envLocalPath)) {
-        const content = fs.readFileSync(envLocalPath, 'utf-8')
-        if (!content.includes('SHOV_API_KEY')) {
-          fs.appendFileSync(envLocalPath, envVars)
-          console.log('📝 Added Shov configuration to your .env.local file.')
-        }
-      } else if (fs.existsSync(envPath)) {
+      if (fs.existsSync(envPath)) {
         const content = fs.readFileSync(envPath, 'utf-8')
         if (!content.includes('SHOV_API_KEY')) {
           fs.appendFileSync(envPath, envVars)
@@ -2817,23 +2942,7 @@ class ShovCLI {
         written++
       }
 
-      // Create framework-specific env file inside the frontend app
-      try {
-        const envLocalPath = path.join(appDir, '.env.local')
-        // Use the actual backend runtime URL, not the code API
-        const runtimeUrl = backendUrl || `https://${projectName}.shov.dev`
-        let envContent = ''
-        if (framework === 'nextjs') {
-          envContent += `NEXT_PUBLIC_SHOV_URL=${runtimeUrl}\n`
-          envContent += `NEXT_PUBLIC_SHOV_API_KEY=${apiKey}\n`
-        } else {
-          envContent += `VITE_SHOV_URL=${runtimeUrl}\n`
-          envContent += `VITE_SHOV_API_KEY=${apiKey}\n`
-        }
-        fs.writeFileSync(envLocalPath, envContent, 'utf8')
-      } catch (envError) {
-        console.warn(chalk.yellow(`  ⚠️  Could not create frontend .env.local: ${envError.message}`))
-      }
+      // Frontend env vars are now merged into the main .env file (handled by addToEnv)
 
       spinner.stop()
       // Silently complete - parent handles messaging
