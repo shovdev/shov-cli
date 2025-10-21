@@ -828,26 +828,24 @@ class ShovCLI {
             }
           }
           
-          // Backend is already deployed by server - nothing to download locally
+          // Backend is already deployed by server
+          // Check if frontend was also deployed
+          const hasFrontend = options.frontend || options.starter === 'b2b' || options.starter === 'b2c';
+          const frontendDeployed = verifyData.project.frontendDeployed;
           
-          if (isFirstTimeUser) {
-            // Show animated project details with URL hero'd
-            await this.showProjectDetails(
-              verifyData.project.name, 
-              verifyData.project.apiKey, 
-              verifyData.project.url
-            )
-            
-            // Show next steps with examples
-            await this.showFirstTimeExamples(verifyData.project.url, codeDir)
+          // Show consistent output regardless of first-time or returning user
+          console.log('\n')
+          if (frontendDeployed && hasFrontend) {
+            console.log(chalk.bold('✅ Your full-stack app is LIVE!\n'))
+            console.log(chalk.gray('  App URL:     ') + chalk.cyan.bold(verifyData.project.url))
+            console.log(chalk.gray('  Backend API: ') + chalk.cyan(verifyData.project.url + '/api'))
           } else {
-            // Minimal output for returning users but still show URL
-            console.log('\n')
-            console.log(chalk.gray('  Shov backend URL: ') + chalk.cyan(verifyData.project.url))
-            console.log(chalk.gray('  API Key:     ') + chalk.yellow(verifyData.project.apiKey))
-            console.log(chalk.gray('  Config saved to .shov and .env'))
-            console.log('\n')
+            console.log(chalk.bold('✅ Backend is LIVE!\n'))
+            console.log(chalk.gray('  Backend API: ') + chalk.cyan.bold(verifyData.project.url))
           }
+          console.log(chalk.gray('  API Key:     ') + chalk.yellow(verifyData.project.apiKey))
+          console.log(chalk.gray('  Config saved to .shov and .env'))
+          console.log('\n')
         } else {
           spinner.fail(`❌ Verification failed: ${verifyData.error || 'Unknown error'}`)
         }
@@ -2937,6 +2935,8 @@ class ShovCLI {
   // Deploy Frontend - Build and deploy Next.js frontend
   async deployFrontend(projectName, apiKey, options = {}) {
     const { execSync } = require('child_process')
+    const path = require('path')
+    const fs = require('fs')
     
     // Step 1: Build with OpenNext (silent - parent handles spinner)
     try {
@@ -2954,37 +2954,64 @@ class ShovCLI {
       throw new Error(errorMsg.substring(0, 200)) // Limit error length
     }
     
-    // Step 2: Deploy to Cloudflare Worker
+    // Step 1.5: Bundle with wrangler (OpenNext now outputs unbundled worker)
     try {
-      const workerName = `shov-fe-${projectName}`
-      execSync(
-        `npx --yes @opennextjs/cloudflare@latest deploy --worker-name=${workerName}`,
-        {
-          stdio: 'pipe',
-          cwd: process.cwd(),
-          encoding: 'utf-8'
-        }
-      )
+      execSync('npx wrangler deploy --dry-run --outdir=.wrangler-output .open-next/worker.js', {
+        stdio: 'pipe',
+        cwd: process.cwd()
+      })
     } catch (error) {
       const stderr = error.stderr?.toString() || error.stdout?.toString() || ''
       const errorMsg = stderr.split('\n').filter(line => 
         line.includes('Error') || line.includes('error') || line.includes('failed')
-      ).join(' ').trim() || 'Deployment failed'
+      ).join(' ').trim() || 'Bundling failed'
       
       throw new Error(errorMsg.substring(0, 200))
     }
     
-    // Step 3: Update project metadata
+    // Step 2: Read worker.js and assets
+    const workerPath = path.join(process.cwd(), '.wrangler-output/worker.js')
+    const assetsDir = path.join(process.cwd(), '.open-next/assets')
+    
+    if (!fs.existsSync(workerPath)) {
+      throw new Error('worker.js not found - build may have failed')
+    }
+    
+    const workerCode = fs.readFileSync(workerPath, 'utf-8')
+    
+    // Collect assets recursively
+    const assets = {}
+    const collectAssets = (dir, basePath) => {
+      if (!fs.existsSync(dir)) return
+      
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          collectAssets(fullPath, basePath)
+        } else {
+          const relativePath = path.relative(basePath, fullPath)
+          assets[relativePath] = fs.readFileSync(fullPath, 'utf-8')
+        }
+      }
+    }
+    
+    collectAssets(assetsDir, assetsDir)
+    
+    // Step 3: Upload to Shov API
     try {
-      await this.apiCall(`/projects/${projectName}/frontend`, {
-        has_frontend: true,
-        frontend_framework: 'nextjs',
-        frontend_worker: `shov-fe-${projectName}`,
-        last_frontend_deploy_at: new Date().toISOString()
-      }, apiKey, options, 'PATCH')
+      const response = await this.apiCall(`/projects/${projectName}/frontend/deploy`, {
+        worker: workerCode,
+        assets: assets
+      }, apiKey, options, 'POST')
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Deployment failed')
+      }
+      
+      return response
     } catch (error) {
-      // Non-critical - frontend is still deployed
-      console.warn(chalk.gray(`  Note: Metadata update failed - ${error.message}`))
+      throw new Error(`Deployment failed: ${error.message}`)
     }
   }
 
