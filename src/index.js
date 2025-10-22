@@ -660,7 +660,8 @@ class ShovCLI {
           data.project.name,
           data.project.organizationSlug,
           data.project.url,
-          options.frontend
+          options.frontend,
+          data.envFile
         )
         
         // Write README silently (skip if --remote-only or --no-local)
@@ -908,7 +909,8 @@ class ShovCLI {
             verifyData.project.name,
             verifyData.project.organizationSlug,
             verifyData.project.url,
-            options.frontend
+            options.frontend,
+            verifyData.envFile
           )
           
           // Write README if provided by backend (skip if --remote-only or --no-local)
@@ -1007,22 +1009,21 @@ class ShovCLI {
     }
   }
 
-  addToEnv(apiKey, projectName, organizationSlug, url, frontend) {
-    // Build env vars with all needed fields
-    let envVars = `\nSHOV_API_KEY=${apiKey}\nSHOV_PROJECT=${projectName}\n` +
-      (organizationSlug ? `SHOV_ORG=${organizationSlug}\n` : '') +
-      (url ? `SHOV_URL=${url}\n` : '')
-    
-    // Add frontend-specific env vars (Next.js needs NEXT_PUBLIC_ prefix)
-    // These are added to .env so there's only one file to manage
-    if (frontend === 'nextjs' || frontend) {
-      envVars += `NEXT_PUBLIC_APP_URL=${url}\n`
-      envVars += `NEXT_PUBLIC_SHOV_URL=${url}\n`
-      envVars += `NEXT_PUBLIC_SHOV_API_KEY=${apiKey}\n`
-    }
-    
+  addToEnv(apiKey, projectName, organizationSlug, url, frontend, envFileFromServer) {
     // Always use .env (not .env.local) for simplicity
     const envPath = path.resolve(process.cwd(), '.env')
+    
+    // Server provides the complete .env content (single source of truth)
+    if (!envFileFromServer) {
+      console.warn('⚠️  Server did not provide .env content. Please update your Shov CLI.')
+      return
+    }
+    
+    let envVars = envFileFromServer
+    // Ensure newline at start if not already present
+    if (!envVars.startsWith('\n')) {
+      envVars = '\n' + envVars
+    }
 
     try {
       if (fs.existsSync(envPath)) {
@@ -1210,6 +1211,121 @@ class ShovCLI {
 
     } catch (error) {
       spinner.fail(`An error occurred during the claim process: ${error.message}`);
+    }
+  }
+
+  // Clone an existing project to local directory
+  async cloneProject(projectName, options = {}) {
+    const { default: ora } = await import('ora');
+    const { default: chalk } = await import('chalk');
+    const fs = require('fs');
+    const path = require('path');
+
+    const spinner = ora(`Cloning project ${projectName}...`).start();
+
+    try {
+      // Get project data from API
+      const response = await fetch(`${this.apiUrl}/projects/${projectName}/clone`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to clone project: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to clone project');
+      }
+
+      spinner.succeed(`Fetched project data for ${projectName}`);
+
+      // Create local directory structure
+      const outputDir = options.output || process.cwd();
+      
+      spinner.start('Creating local files...');
+
+      // Write backend files to ./api
+      if (data.files.backend && Object.keys(data.files.backend).length > 0) {
+        const apiDir = path.join(outputDir, 'api');
+        if (!fs.existsSync(apiDir)) {
+          fs.mkdirSync(apiDir, { recursive: true });
+        }
+
+        for (const [filePath, content] of Object.entries(data.files.backend)) {
+          const fullPath = path.join(apiDir, filePath);
+          const dir = path.dirname(fullPath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          fs.writeFileSync(fullPath, content, 'utf-8');
+        }
+      }
+
+      // Write frontend files to ./app
+      if (data.files.frontend && Object.keys(data.files.frontend).length > 0) {
+        const appDir = path.join(outputDir, 'app');
+        if (!fs.existsSync(appDir)) {
+          fs.mkdirSync(appDir, { recursive: true });
+        }
+
+        for (const [filePath, content] of Object.entries(data.files.frontend)) {
+          const fullPath = path.join(appDir, filePath);
+          const dir = path.dirname(fullPath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          fs.writeFileSync(fullPath, content, 'utf-8');
+        }
+      }
+
+      // Write .env file
+      if (data.config.env) {
+        const envPath = path.join(outputDir, '.env');
+        fs.writeFileSync(envPath, data.config.env, 'utf-8');
+      }
+
+      // Write .shov config
+      if (data.config.shov) {
+        const shovPath = path.join(outputDir, '.shov');
+        fs.writeFileSync(shovPath, JSON.stringify(data.config.shov, null, 2), 'utf-8');
+      }
+
+      // Add .shov to .gitignore
+      this.addToGitignore();
+
+      spinner.succeed('Project cloned successfully!');
+
+      // Show summary
+      console.log('');
+      console.log(chalk.bold('✅ Project cloned successfully!'));
+      console.log('');
+      console.log(chalk.gray('   Project:        ') + chalk.white(data.project.name));
+      console.log(chalk.gray('   Organization:   ') + chalk.white(data.project.organizationSlug));
+      console.log(chalk.gray('   App URL:        ') + chalk.cyan(data.project.url));
+      console.log('');
+      console.log(chalk.gray('   Backend files:  ') + chalk.white(`${data.stats.backendFiles} files in ./api`));
+      if (data.project.hasFrontend) {
+        console.log(chalk.gray('   Frontend files: ') + chalk.white(`${data.stats.frontendFiles} files in ./app`));
+      }
+      console.log('');
+      console.log(chalk.bold('📝 Next Steps:'));
+      console.log('');
+      if (data.project.hasFrontend) {
+        console.log(chalk.gray('   • Install deps:   ') + chalk.white('npm install'));
+        console.log(chalk.gray('   • Run locally:    ') + chalk.white('npm run dev'));
+      }
+      console.log(chalk.gray('   • Deploy changes: ') + chalk.white('shov deploy'));
+      console.log('');
+
+    } catch (error) {
+      spinner.fail(`Failed to clone project: ${error.message}`);
+      throw error;
     }
   }
 

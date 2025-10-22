@@ -92,6 +92,21 @@ program
   })
 
 program
+  .command('clone <projectName>')
+  .description('Clone an existing project to local directory (downloads source files, .env, .shov)')
+  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
+  .option('-o, --output <directory>', 'Output directory (default: current directory)')
+  .action(async (projectName, options) => {
+    try {
+      const cli = new ShovCLI(options);
+      await cli.cloneProject(projectName, options)
+    } catch (error) {
+      console.error(chalk.red('Error:'), error.message)
+      process.exit(1)
+    }
+  })
+
+program
   .command('get <key>')
   .description('Get a value from your Shov project')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
