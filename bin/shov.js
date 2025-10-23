@@ -810,8 +810,9 @@ program
   });
 
 program
-  .command('clone <sourceEnv> <targetEnv>')
-  .description('Clone an entire environment (code, data, files, secrets)')
+  .command('copy-env <sourceEnv> <targetEnv>')
+  .alias('clone-env')
+  .description('Copy an entire environment (code, data, files, secrets)')
   .option('-y, --yes', 'Skip confirmation prompts')
   .option('--overwrite', 'Overwrite target environment if it exists')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
