@@ -1,6 +1,6 @@
 # Shov CLI
 
-Ship Production Backends in Seconds, Not Weeks with vector search and real-time streaming. Create projects, store data, and build apps with zero setup.
+Ship Production Backends in Seconds, Not Weeks. Full-stack deployment with unified data engine and real-time streaming. Create projects, store data, and build apps with zero setup.
 
 <p align="center">
   <a href="https://shov.com" target="_blank"><strong>Website / Docs</strong></a> •
@@ -141,7 +141,6 @@ shov where users
 - `shov clear <collection>` - Clear all items from a collection
 - `shov batch <operations>` - Execute multiple operations atomically in a single transaction
 - `shov contents` - List all memory contents (keys, collections, files)
-- `shov search <query>` - Perform a semantic search across keys and collections
 
 ### File Operations
 - `shov upload <file_path>` - Upload a file
@@ -200,14 +199,7 @@ shov where users
 All data commands support these options:
 - `-p, --project <name>` - Specify project name
 - `-k, --key <apikey>` - Specify API key
-- `--json` - Output structured JSON for scripting (available on get, search, where commands)
-
-Search-specific options:
-- `--top-k <number>` - Maximum number of results (default: 10)
-- `--topK <number>` - Alias for --top-k (backward compatibility)
-- `--min-score <number>` - Minimum similarity score (0.0-1.0, default: 0.5)
-- `--minScore <number>` - Alias for --min-score (backward compatibility)
-- `--filters <json>` - JSON object to filter results by specific fields
+- `--json` - Output structured JSON for scripting (available on get, where commands)
 - `--limit <number>` - Alias for --top-k (pagination)
 - `--offset <number>` - Skip results for pagination
 
@@ -284,31 +276,23 @@ shov upload-url document.pdf
 shov forget-file document.pdf
 ```
 
-### Vector Search
+### Filtered Queries
 
 ```bash
-# Add some searchable content
+# Add some test data
 shov add-many products '[
-  {"name":"Fender Stratocaster","type":"Electric Guitar","description":"Classic electric guitar"},
-  {"name":"Roland TD-27KV","type":"Electronic Drums","description":"Professional drum kit"}
+  {"name":"Fender Stratocaster","type":"Electric Guitar","price":1299},
+  {"name":"Roland TD-27KV","type":"Electronic Drums","price":2499}
 ]'
 
-# Search with natural language
-shov search "stringed instrument" -c products
-
-# Search with advanced filters and options
-shov search "musical equipment" --top-k 5 --min-score 0.7 --filters '{"type":"Electric Guitar"}'
-shov search "affordable instruments" --filters '{"price": {"$between": [100, 500]}, "type": {"$in": ["Guitar", "Drums"]}}'
-shov search "professional gear" --filters '{"brand": {"$like": "Roland%"}, "price": {"$gte": 1000}}'
-
-# Search across all collections in project
-shov search "musical equipment"
+# Query with filters
+shov where products --filter '{"type":"Electric Guitar"}'
+shov where products --filter '{"price": {"$between": [100, 500]}}'
+shov where products --filter '{"price": {"$gte": 1000}}'
 
 # Get structured JSON output for scripting
-shov search "stringed instrument" -c products --json
+shov where products --filter '{"type":"Electric Guitar"}' --json
 ```
-
-**⚠️ Important Note**: Vector search has eventual consistency. There is a small delay between adding data and it becoming searchable. Newly added items may not appear in search results immediately.
 
 ### Authentication
 
@@ -458,8 +442,8 @@ Use `--json` flag for structured output suitable for automation:
 shov get config --json
 # Output: {"success": true, "key": "config", "value": {...}, "project": "my-project"}
 
-# Search with JSON output for parsing
-shov search "electronics" --json | jq '.items[].value.name'
+# Query with JSON output for parsing
+shov where products --filter '{"category":"electronics"}' --json | jq '.items[].value.name'
 
 # Pipe results to other tools
 shov where users --json | jq '.items | length'  # Count users
@@ -510,8 +494,8 @@ await shov.forget('hello')
 await shov.add('users', { name: 'Alice', age: 25 })
 const users = await shov.where('users', { filter: { age: 25 } })
 
-// Vector search
-const results = await shov.search('find Alice', { collection: 'users' })
+// Filtered queries
+const results = await shov.where('users', { filter: { name: 'Alice' } })
 
 // Atomic transactions
 const batchResult = await shov.batch([

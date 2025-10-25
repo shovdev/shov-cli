@@ -555,11 +555,8 @@ class ShovCLI {
     console.log(chalk.gray('   ') + chalk.white('shov add') + chalk.gray(' users ') + chalk.cyan('\'{"name": "Alice", "email": "alice@example.com"}\''))
     console.log(chalk.gray('   ') + chalk.white('shov where') + chalk.gray(' users'))
     
-    // Vector search with magic
+    // Vector search removed for v1
     await delay(700)
-    console.log(chalk.gray('\n   ✨ Vector search (all data auto-embedded):'))
-    console.log(chalk.gray('   ') + chalk.white('shov search') + chalk.gray(' ') + chalk.cyan('"find users named Alice"'))
-    console.log(chalk.gray('   ') + chalk.dim('Natural language queries across all your data'))
     
     // Key-value storage
     await delay(700)
@@ -1478,9 +1475,7 @@ class ShovCLI {
       }
 
       const body = { name: key, value: parsedValue };
-      if (options.noVector) {
-        body.excludeFromVector = true;
-      }
+      // excludeFromVector removed (vector search removed for v1)
       const response = await this.apiCall(`/data/${project.projectName}/set`, body, project.apiKey, options);
 
       if (response.success) {
@@ -1554,9 +1549,7 @@ class ShovCLI {
         name: collection,
         value: parsedValue
       };
-      if (options.noVector) {
-        body.excludeFromVector = true;
-      }
+      // excludeFromVector removed (vector search removed for v1)
       const data = await this.apiCall(`/data/${projectName}/add`, body, apiKey, options);
 
       if (data.success) {
@@ -1950,9 +1943,7 @@ class ShovCLI {
         collection: collection,
         value: parsedValue 
       };
-      if (options.noVector) {
-        body.excludeFromVector = true;
-      }
+      // excludeFromVector removed (vector search removed for v1)
 
       // Use POST for update with ID in URL path
       const data = await this.apiCall(`/data/${projectName}/update/${encodeURIComponent(idOrName)}`, body, apiKey, options);
@@ -2506,6 +2497,12 @@ class ShovCLI {
   }
 
   async search(query, options = {}) {
+    console.log(chalk.yellow('⚠️  Vector search has been temporarily removed for v1'));
+    console.log(chalk.gray('Use "shov where <collection> --filter <json>" for filtered queries'));
+    console.log(chalk.gray('Vector search will return in a future release'));
+    return;
+    
+    /* Vector search implementation removed - code below kept for reference but not executed
     const { projectName, apiKey } = await this.getProjectConfig(options);
 
     try {
@@ -2624,6 +2621,7 @@ class ShovCLI {
         throw new Error(`Search failed: ${error.message}`);
       }
     }
+    */ // End of removed vector search code
   }
 
   // List all available projects
@@ -4294,11 +4292,15 @@ class ShovCLI {
   }
 
   // ============================================================================
-  // EVENTS MANAGEMENT
+  // EVENTS MANAGEMENT - Removed for v1
   // ============================================================================
 
-  // Events Commands
+  // Events Commands - Removed for v1
   async eventsTrack(event, propertiesString, options = {}) {
+    console.log(chalk.yellow('⚠️  Event tracking has been temporarily removed for v1'));
+    console.log(chalk.gray('This feature will return in a future release'));
+    return;
+    /* Event tracking removed for v1
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
@@ -4335,7 +4337,12 @@ class ShovCLI {
     }
   }
 
+  */ // End removed code
+  
   async eventsQuery(options = {}) {
+    console.log(chalk.yellow('⚠️  Event tracking has been temporarily removed for v1'));
+    return;
+    /*
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
@@ -4398,7 +4405,12 @@ class ShovCLI {
     }
   }
 
+  */ // End removed code
+  
   async eventsTail(options = {}) {
+    console.log(chalk.yellow('⚠️  Event tracking has been temporarily removed for v1'));
+    return;
+    /*
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
@@ -4452,6 +4464,7 @@ class ShovCLI {
     } catch (error) {
       throw new Error(`Failed to tail events: ${error.message}`)
     }
+    */ // End removed code
   }
 }
 

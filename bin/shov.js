@@ -127,7 +127,6 @@ program
   .description('Set a key-value pair in your Shov project')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--no-vector', 'Exclude from vector search/embedding processing')
   .option('--ttl <seconds>', 'Time to live in seconds (for expiration)')
   .option('--json', 'Output JSON for scripting')
   .action(async (key, value, options) => {
@@ -145,7 +144,6 @@ program
   .description('Add an item to a collection in your Shov project')
   .option('-p, --project <project>', 'Project name (or use .shov config)')
   .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--no-vector', 'Exclude from vector search/embedding processing')
   .option('--ttl <seconds>', 'Time to live in seconds (for expiration)')
   .option('--json', 'Output JSON for scripting')
   .action(async (collection, value, options) => {
@@ -287,31 +285,7 @@ program
     }
   });
 
-program
-  .command('search <query>')
-    .description('Perform a vector search on a collection, project, or organization')
-    .option('-p, --project <project>', 'Project name (or use .shov config)')
-    .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-    .option('-c, --collection <collection>', 'Search within a specific collection')
-    .option('--project-wide', 'Search across all collections in the project (default)')
-    .option('--org-wide', 'Search across all projects in the organization')
-    .option('--min-score <score>', 'The minimum similarity score for results (0.0 to 1.0)')
-    .option('--minScore <score>', 'Alias for --min-score (backward compatibility)')
-    .option('--top-k <number>', 'Maximum number of results to return (default: 10)')
-    .option('--topK <number>', 'Alias for --top-k (backward compatibility)')
-    .option('--filters <json>', 'JSON object to filter results by specific fields (e.g. \'{"user_id": "123"}\')')
-    .option('--limit <number>', 'Alias for --top-k (pagination)')
-    .option('--offset <number>', 'Skip this many results (for pagination)')
-    .option('--json', 'Output JSON for scripting')
-    .action(async (query, options) => {
-        try {
-            const cli = new ShovCLI(options);
-            await cli.search(query, options);
-        } catch (error) {
-            console.error(chalk.red('Error:'), error.message);
-            process.exit(1);
-        }
-    });
+// Vector search command removed for v1 - feature deferred post-launch
 
 program
     .command('upload <filePath>')
@@ -878,65 +852,7 @@ program.on('command:*', () => {
   process.exit(1)
 })
 
-// Events Commands
-const events = program.command('events').description('Track and query custom events');
-
-events
-  .command('track <event> [properties]')
-  .description('Track a custom event with optional properties')
-  .option('-p, --project <project>', 'Project name (or use .shov config)')
-  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--env <environment>', 'Environment name (default: production)')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (event, properties, options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.eventsTrack(event, properties, options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-events
-  .command('query')
-  .description('Query historical events with filters')
-  .option('-p, --project <project>', 'Project name (or use .shov config)')
-  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--env <environment>', 'Environment name (default: production)')
-  .option('--event <name>', 'Filter by event name')
-  .option('--filters <json>', 'JSON filters for event properties')
-  .option('--time-range <range>', 'Time range: 1h, 6h, 12h, 24h, 7d, 30d (default: 24h)')
-  .option('--limit <number>', 'Maximum number of events to return (default: 100)')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.eventsQuery(options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
-
-events
-  .command('tail')
-  .description('Stream recent events in real-time')
-  .option('-p, --project <project>', 'Project name (or use .shov config)')
-  .option('-k, --key <apiKey>', 'API key (or use .shov config)')
-  .option('--env <environment>', 'Environment name (default: production)')
-  .option('--event <name>', 'Filter by event name')
-  .option('--limit <number>', 'Maximum number of events to show (default: 100)')
-  .option('--json', 'Output JSON for scripting')
-  .action(async (options) => {
-    try {
-      const cli = new ShovCLI(options);
-      await cli.eventsTail(options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error.message);
-      process.exit(1);
-    }
-  });
+// Events commands removed for v1 - feature deferred post-launch
 
 // Show help if no command provided
 if (!process.argv.slice(2).length) {
