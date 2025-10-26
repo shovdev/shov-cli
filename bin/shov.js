@@ -14,6 +14,7 @@ program
   .command('new [projectName]')
   .description('Create a new Shov project')
   .option('-e, --email <email>', 'Your email address (optional)')
+  .option('--region <region>', 'Data region: global (fastest), us (Americas), eu (GDPR compliant). Default: global')
   .option('--b2c', 'Deploy full-stack B2C app (Next.js frontend + B2C backend with auth)')
   .option('--b2b', 'Deploy full-stack B2B SaaS (Next.js frontend + B2B backend with teams, RBAC)')
   .option('--starter <type>', 'Deploy starter template: b2c or b2b (alternative to --b2c/--b2b flags)')

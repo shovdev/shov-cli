@@ -607,6 +607,18 @@ class ShovCLI {
         headers.Authorization = `Bearer ${config.token}`
       }
       
+      // Validate and normalize region
+      let dataRegion = 'global'; // default
+      if (options.region) {
+        const validRegions = ['global', 'us', 'eu'];
+        if (validRegions.includes(options.region.toLowerCase())) {
+          dataRegion = options.region.toLowerCase();
+        } else {
+          spinner.fail(`Invalid region: ${options.region}. Valid options: global, us, eu`);
+          process.exit(1);
+        }
+      }
+      
       const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
         headers,
@@ -616,6 +628,7 @@ class ShovCLI {
           lang: options.lang || null,
           frontend: options.frontend || null,
           autoDeployFrontend: options.frontend ? true : false, // Auto-deploy if frontend requested
+          dataRegion: dataRegion,
         }),
       })
 
@@ -821,6 +834,18 @@ class ShovCLI {
     const config = await this.config.getConfig()
 
     try {
+      // Validate and normalize region
+      let dataRegion = 'global'; // default
+      if (options.region) {
+        const validRegions = ['global', 'us', 'eu'];
+        if (validRegions.includes(options.region.toLowerCase())) {
+          dataRegion = options.region.toLowerCase();
+        } else {
+          spinner.fail(`Invalid region: ${options.region}. Valid options: global, us, eu`);
+          process.exit(1);
+        }
+      }
+      
       // Step 1: Initiate project creation with email
       const response = await fetch(`${this.apiUrl}/api/projects`, {
         method: 'POST',
@@ -834,6 +859,7 @@ class ShovCLI {
           starter: options.starter || null,
           lang: options.lang || null,
           frontend: options.frontend || null,
+          dataRegion: dataRegion,
         }),
       })
 
@@ -874,6 +900,7 @@ class ShovCLI {
             pin: otpResponse.otp,
             projectName: data.project.name,
             starter: options.starter || null,
+            dataRegion: dataRegion,
           }),
         })
 
