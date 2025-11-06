@@ -1242,17 +1242,109 @@ class ShovCLI {
   async cloneProject(projectName, options = {}) {
     const { default: ora } = await import('ora');
     const { default: chalk } = await import('chalk');
+    const prompts = require('prompts');
     const fs = require('fs');
     const path = require('path');
+
+    let apiKey = options.key;
+    
+    // If no API key provided, prompt for email + OTP auth
+    if (!apiKey) {
+      console.log(chalk.blue('🔐 Authentication required to clone project'));
+      console.log('');
+      
+      // Prompt for email
+      const emailResponse = await prompts({
+        type: 'text',
+        name: 'email',
+        message: 'Enter your email address:',
+        validate: email => email.includes('@') || 'Please enter a valid email'
+      });
+      
+      if (!emailResponse.email) {
+        throw new Error('Email is required');
+      }
+      
+      const email = emailResponse.email;
+      
+      // Send OTP
+      const spinner = ora('Sending verification code...').start();
+      
+      try {
+        const otpResponse = await fetch(`${this.apiUrl}/api/auth/send-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        
+        if (!otpResponse.ok) {
+          const error = await otpResponse.json();
+          throw new Error(error.error || 'Failed to send OTP');
+        }
+        
+        spinner.succeed('Verification code sent to your email');
+      } catch (error) {
+        spinner.fail('Failed to send OTP');
+        throw error;
+      }
+      
+      console.log('');
+      
+      // Prompt for OTP
+      const otpPromptResponse = await prompts({
+        type: 'text',
+        name: 'otp',
+        message: 'Enter the 4-digit code from your email:',
+        validate: otp => /^\d{4}$/.test(otp) || 'Please enter a 4-digit code'
+      });
+      
+      if (!otpPromptResponse.otp) {
+        throw new Error('Verification code is required');
+      }
+      
+      // Verify OTP and generate API key for this project
+      spinner.start('Verifying code and generating API key...');
+      
+      try {
+        const verifyResponse = await fetch(`${this.apiUrl}/api/projects/${projectName}/clone-auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email,
+            pin: otpPromptResponse.otp
+          })
+        });
+        
+        if (!verifyResponse.ok) {
+          const error = await verifyResponse.json();
+          throw new Error(error.error || 'Invalid verification code');
+        }
+        
+        const verifyData = await verifyResponse.json();
+        
+        if (!verifyData.success || !verifyData.apiKey) {
+          throw new Error('Failed to generate API key');
+        }
+        
+        apiKey = verifyData.apiKey;
+        spinner.succeed('Authenticated successfully');
+      } catch (error) {
+        spinner.fail('Authentication failed');
+        throw error;
+      }
+      
+      console.log('');
+    }
 
     const spinner = ora(`Cloning project ${projectName}...`).start();
 
     try {
-      // Get project data from API
-      const response = await fetch(`${this.apiUrl}/projects/${projectName}/clone`, {
+      // Get project data from API with API key
+      const response = await fetch(`${this.apiUrl}/api/projects/${projectName}/clone`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
         }
       });
 
@@ -1274,7 +1366,7 @@ class ShovCLI {
       
       spinner.start('Creating local files...');
 
-      // Write backend files to ./api
+      // Write backend files to ./api (strip api/ prefix from storage paths)
       if (data.files.backend && Object.keys(data.files.backend).length > 0) {
         const apiDir = path.join(outputDir, 'api');
         if (!fs.existsSync(apiDir)) {
@@ -1282,7 +1374,9 @@ class ShovCLI {
         }
 
         for (const [filePath, content] of Object.entries(data.files.backend)) {
-          const fullPath = path.join(apiDir, filePath);
+          // Strip api/ prefix if present (storage paths have it, local paths don't)
+          const localPath = filePath.startsWith('api/') ? filePath.substring(4) : filePath;
+          const fullPath = path.join(apiDir, localPath);
           const dir = path.dirname(fullPath);
           if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -1291,15 +1385,10 @@ class ShovCLI {
         }
       }
 
-      // Write frontend files to ./app
+      // Write frontend files to root (they already have app/ prefix in their paths)
       if (data.files.frontend && Object.keys(data.files.frontend).length > 0) {
-        const appDir = path.join(outputDir, 'app');
-        if (!fs.existsSync(appDir)) {
-          fs.mkdirSync(appDir, { recursive: true });
-        }
-
         for (const [filePath, content] of Object.entries(data.files.frontend)) {
-          const fullPath = path.join(appDir, filePath);
+          const fullPath = path.join(outputDir, filePath);
           const dir = path.dirname(fullPath);
           if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -1314,11 +1403,12 @@ class ShovCLI {
         fs.writeFileSync(envPath, data.config.env, 'utf-8');
       }
 
-      // Write .shov config
-      if (data.config.shov) {
-        const shovPath = path.join(outputDir, '.shov');
-        fs.writeFileSync(shovPath, JSON.stringify(data.config.shov, null, 2), 'utf-8');
-      }
+      // Write .shov config with the generated API key
+      const shovConfig = data.config.shov || {};
+      shovConfig.apiKey = apiKey; // Add the API key used for cloning
+      
+      const shovPath = path.join(outputDir, '.shov');
+      fs.writeFileSync(shovPath, JSON.stringify(shovConfig, null, 2), 'utf-8');
 
       // Add .shov to .gitignore
       this.addToGitignore();
@@ -1333,9 +1423,10 @@ class ShovCLI {
       console.log(chalk.gray('   Organization:   ') + chalk.white(data.project.organizationSlug));
       console.log(chalk.gray('   App URL:        ') + chalk.cyan(data.project.url));
       console.log('');
-      console.log(chalk.gray('   Backend files:  ') + chalk.white(`${data.stats.backendFiles} files in ./api`));
+      console.log(chalk.gray('   Backend files:  ') + chalk.white(`${data.stats.backendFiles} files`));
       if (data.project.hasFrontend) {
-        console.log(chalk.gray('   Frontend files: ') + chalk.white(`${data.stats.frontendFiles} files in ./app`));
+        console.log(chalk.gray('   Frontend files: ') + chalk.white(`${data.stats.frontendFiles} files`));
+        console.log(chalk.gray('   Framework:      ') + chalk.white(data.project.frontendFramework || 'unknown'));
       }
       console.log('');
       console.log(chalk.bold('📝 Next Steps:'));
@@ -3183,6 +3274,171 @@ class ShovCLI {
   }
 
   // Deploy Frontend - Build and deploy Next.js frontend
+  // New unified frontend deployment that handles both Tanstack and Next.js
+  async deployFrontendBuild(projectName, apiKey, framework, options = {}) {
+    const { execSync } = require('child_process')
+    const { default: ora } = await import('ora')
+    const { default: chalk } = await import('chalk')
+    const path = require('path')
+    const fs = require('fs')
+    
+    const spinner = ora(`Building ${framework} frontend...`).start()
+    
+    try {
+      if (framework === 'tanstack') {
+        // Build Tanstack Start app
+        spinner.text = 'Building Tanstack Start app...'
+        execSync('npm run build', {
+          stdio: 'pipe',
+          cwd: process.cwd()
+        })
+        
+        spinner.text = 'Uploading static assets...'
+        
+        // Upload static assets from dist/client
+        const distDir = path.join(process.cwd(), 'dist', 'client')
+        if (!fs.existsSync(distDir)) {
+          throw new Error('dist/client not found - build may have failed')
+        }
+        
+        const assets = {}
+        const collectAssets = (dir, basePath) => {
+          if (!fs.existsSync(dir)) return
+          
+          const entries = fs.readdirSync(dir, { withFileTypes: true })
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name)
+            if (entry.isDirectory()) {
+              collectAssets(fullPath, basePath)
+            } else {
+              const relativePath = path.relative(basePath, fullPath).replace(/\\/g, '/')
+              // Read as base64 for binary files
+              const ext = path.extname(entry.name).toLowerCase()
+              const isBinary = ['.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.webp'].includes(ext)
+              
+              if (isBinary) {
+                assets[relativePath] = {
+                  content: fs.readFileSync(fullPath).toString('base64'),
+                  encoding: 'base64'
+                }
+              } else {
+                assets[relativePath] = {
+                  content: fs.readFileSync(fullPath, 'utf-8'),
+                  encoding: 'utf-8'
+                }
+              }
+            }
+          }
+        }
+        
+        collectAssets(distDir, distDir)
+        
+        spinner.text = `Deploying ${Object.keys(assets).length} assets...`
+        
+        // Deploy to backend
+        const response = await this.apiCall(`/projects/${projectName}/frontend/deploy`, {
+          framework: 'tanstack',
+          assets: assets
+        }, apiKey, options, 'POST')
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Deployment failed')
+        }
+        
+        spinner.succeed(`Tanstack frontend deployed (${Object.keys(assets).length} files)`)
+        console.log(chalk.gray('   Frontend cache auto-invalidated'))
+        
+        return response
+        
+      } else if (framework === 'nextjs') {
+        // Build with OpenNext
+        spinner.text = 'Building Next.js with OpenNext...'
+        execSync('npx --yes @opennextjs/cloudflare@latest build', {
+          stdio: 'pipe',
+          cwd: process.cwd()
+        })
+        
+        spinner.text = 'Bundling worker...'
+        execSync('npx wrangler deploy --dry-run --outdir=.wrangler-output .open-next/worker.js', {
+          stdio: 'pipe',
+          cwd: process.cwd()
+        })
+        
+        spinner.text = 'Uploading worker and assets...'
+        
+        const workerPath = path.join(process.cwd(), '.wrangler-output/worker.js')
+        const assetsDir = path.join(process.cwd(), '.open-next/assets')
+        
+        if (!fs.existsSync(workerPath)) {
+          throw new Error('worker.js not found - build may have failed')
+        }
+        
+        const workerCode = fs.readFileSync(workerPath, 'utf-8')
+        
+        const assets = {}
+        const collectAssets = (dir, basePath) => {
+          if (!fs.existsSync(dir)) return
+          
+          const entries = fs.readdirSync(dir, { withFileTypes: true })
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name)
+            if (entry.isDirectory()) {
+              collectAssets(fullPath, basePath)
+            } else {
+              const relativePath = path.relative(basePath, fullPath).replace(/\\/g, '/')
+              const ext = path.extname(entry.name).toLowerCase()
+              const isBinary = ['.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.webp'].includes(ext)
+              
+              if (isBinary) {
+                assets[relativePath] = {
+                  content: fs.readFileSync(fullPath).toString('base64'),
+                  encoding: 'base64'
+                }
+              } else {
+                assets[relativePath] = {
+                  content: fs.readFileSync(fullPath, 'utf-8'),
+                  encoding: 'utf-8'
+                }
+              }
+            }
+          }
+        }
+        
+        collectAssets(assetsDir, assetsDir)
+        
+        const response = await this.apiCall(`/projects/${projectName}/frontend/deploy`, {
+          framework: 'nextjs',
+          worker: workerCode,
+          assets: assets
+        }, apiKey, options, 'POST')
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Deployment failed')
+        }
+        
+        spinner.succeed(`Next.js frontend deployed`)
+        console.log(chalk.gray('   Frontend cache auto-invalidated'))
+        
+        return response
+      }
+    } catch (error) {
+      spinner.fail(`Frontend build/deployment failed`)
+      
+      // Extract stderr if available for better error message
+      if (error.stderr || error.stdout) {
+        const stderr = error.stderr?.toString() || error.stdout?.toString() || ''
+        const errorMsg = stderr.split('\n').filter(line => 
+          line.includes('Error') || line.includes('error') || line.includes('failed')
+        ).join(' ').trim() || error.message
+        
+        throw new Error(errorMsg.substring(0, 300))
+      }
+      
+      throw error
+    }
+  }
+
+  // Legacy Next.js-only deployment (kept for backwards compatibility)
   async deployFrontend(projectName, apiKey, options = {}) {
     const { execSync } = require('child_process')
     const path = require('path')
@@ -3274,14 +3530,31 @@ class ShovCLI {
     const config = await this.config.loadLocalConfig()
     const environment = options.env || 'production'
     
-    // For unified full-stack projects, scan entire project root
-    // For legacy backend-only projects, scan just the backend dir
+    // Detect project structure
     const hasApp = fs.existsSync(path.join(process.cwd(), 'app'))
     const hasApi = fs.existsSync(path.join(process.cwd(), 'api'))
     const hasComponents = fs.existsSync(path.join(process.cwd(), 'components'))
     const isFullStack = hasApp || (hasApi && hasComponents)
     
-    const scanDir = isFullStack ? process.cwd() : this.detectCodeDirectory(config.codeDir)
+    // Detect frontend framework
+    let frontendFramework = null
+    if (hasApp) {
+      const packageJsonPath = path.join(process.cwd(), 'package.json')
+      if (fs.existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+          if (packageJson.dependencies && packageJson.dependencies['@tanstack/react-router']) {
+            frontendFramework = 'tanstack'
+          } else if (packageJson.dependencies && packageJson.dependencies['next']) {
+            frontendFramework = 'nextjs'
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+    
+    const scanDir = isFullStack ? path.join(process.cwd(), 'api') : this.detectCodeDirectory(config.codeDir)
     
     try {
       // Check if directory exists
@@ -3291,6 +3564,7 @@ class ShovCLI {
       
       if (isFullStack) {
         console.log(chalk.blue('🚀 Deploying full-stack project (frontend + backend)'))
+        console.log(chalk.gray(`   Backend dir: ${scanDir}`))
       } else {
         console.log(chalk.blue(`📦 Deploying backend from ${scanDir} to ${environment}...`))
       }
@@ -3396,11 +3670,25 @@ class ShovCLI {
       
       // Deploy changes
       let deployed = 0
+      const apiDirPath = path.join(process.cwd(), 'api');
+      const isBackendOnlyDeploy = scanDir === apiDirPath;
+      
+      console.log('DEPLOY DEBUG:', { scanDir, apiDirPath, isBackendOnlyDeploy, isFullStack });
       
       for (const file of toCreate.concat(toUpdate)) {
         const code = fs.readFileSync(file.path, 'utf8')
+        
+        // Add api/ prefix for backend files when deploying from ./api directory
+        let fileName = file.name;
+        console.log('FILE:', fileName, 'isBackendOnlyDeploy:', isBackendOnlyDeploy);
+        if (isBackendOnlyDeploy && !fileName.startsWith('api/')) {
+          console.log('ADDING API PREFIX TO:', fileName);
+          fileName = `api/${fileName}`;
+        }
+        console.log('FINAL NAME:', fileName);
+        
         await this.apiCall(`/code/${projectName}`, {
-          name: file.name,
+          name: fileName,
           code,
           config: {
             timeout: 10000,
@@ -3420,9 +3708,23 @@ class ShovCLI {
       }
       
       console.log('')
-      console.log(chalk.green(`✅ Deployed ${deployed} change(s) to ${environment}`))
-      console.log('')
+      console.log(chalk.green(`✅ Backend deployed: ${deployed} change(s) to ${environment}`))
+      console.log(chalk.gray('   Code cache auto-invalidated'))
       
+      // Phase 2: Deploy frontend if detected
+      if (isFullStack && frontendFramework) {
+        console.log('')
+        console.log(chalk.blue(`📦 Phase 2: Building and deploying ${frontendFramework} frontend...`))
+        
+        try {
+          await this.deployFrontendBuild(projectName, apiKey, frontendFramework, options)
+        } catch (error) {
+          console.log(chalk.red(`\n❌ Frontend deployment failed: ${error.message}`))
+          console.log(chalk.yellow('Backend is deployed, but frontend deployment failed.'))
+        }
+      }
+      
+      console.log('')
       const projectUrl = config.url || `https://${projectName}.shov.dev`
       console.log(chalk.gray(`  Live at: ${projectUrl}`))
       
@@ -3433,7 +3735,9 @@ class ShovCLI {
           created: toCreate.length,
           updated: toUpdate.length,
           deleted: toDelete.length,
-          environment
+          environment,
+          frontendDeployed: isFullStack && frontendFramework ? true : false,
+          frontendFramework
         }, null, 2))
       }
     } catch (error) {
@@ -4362,14 +4666,14 @@ class ShovCLI {
     } catch (error) {
       throw new Error(`Failed to track event: ${error.message}`)
     }
+    */
   }
-
-  */ // End removed code
   
   async eventsQuery(options = {}) {
     console.log(chalk.yellow('⚠️  Event tracking has been temporarily removed for v1'));
     return;
-    /*
+    
+    /* Commented out for v1
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
@@ -4430,14 +4734,14 @@ class ShovCLI {
     } catch (error) {
       throw new Error(`Failed to query events: ${error.message}`)
     }
+    */
   }
-
-  */ // End removed code
   
   async eventsTail(options = {}) {
     console.log(chalk.yellow('⚠️  Event tracking has been temporarily removed for v1'));
     return;
-    /*
+    
+    /* Commented out for v1
     const { projectName, apiKey } = await this.getProjectConfig(options)
     
     try {
@@ -4491,7 +4795,7 @@ class ShovCLI {
     } catch (error) {
       throw new Error(`Failed to tail events: ${error.message}`)
     }
-    */ // End removed code
+    */
   }
 }
 
